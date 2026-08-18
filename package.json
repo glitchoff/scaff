@@ -1,9 +1,16 @@
 {
-  "name": "scaff",
+  "name": "scaff-up",
   "version": "0.1.0",
   "description": "A cross-platform developer CLI for project workspace registration, resolution, and launching.",
   "type": "module",
   "main": "./dist/main.js",
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/glitchoff/scaff"
+  },
   "bin": {
     "scaff": "./dist/main.js"
   },
