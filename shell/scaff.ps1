@@ -17,18 +17,12 @@ everything else to the real binary.
 The default zone is "hot": `scaff zone add C:\path\to\projects` registers a
 zone named "hot", and project lookups prefer it.
 
-Note: the wrapper calls the real CLI via `scaff.cmd`, which npm/pnpm generate
-for global installs on Windows. This avoids recursion into this function.
+Note: the wrapper uses the automatic `$args` variable (not a param block) so
+that arguments starting with `-` (e.g. `-c`, `-v`, `--help`) are captured
+literally instead of being bound as PowerShell parameters. It calls the real
+CLI via `scaff.cmd`, which npm/pnpm generate for global installs on Windows.
 #>
 function scaff {
-    param(
-        [Parameter(Position = 0)]
-        [string]$Arg0,
-
-        [Parameter(ValueFromRemainingArguments = $true)]
-        [string[]]$Rest
-    )
-
     # Resolve the real shim on every call (never cache it). An earlier version
     # cached `$global:__scaff_shim` once at profile-load time and broke
     # permanently if scaff wasn't on PATH at that moment — e.g. right after a
@@ -43,28 +37,32 @@ function scaff {
         return
     }
 
-    # -c / --command : force subcommand mode. Skip project resolution and pass
-    # the remaining args straight to the binary, so you can run a command
-    # (e.g. `setup`, `list`) even when a project with the same name exists.
-    if ($Arg0 -eq '-c' -or $Arg0 -eq '--command') {
-        & $shim @Rest
+    $a = @($args)
+
+    # No arguments → show help.
+    if ($a.Count -eq 0) {
+        & $shim
         return
     }
 
-    # No arguments → show help.
-    if (-not $Arg0) {
-        & $shim
+    $first = [string]$a[0]
+
+    # -c / --command : force subcommand mode. Skip project resolution and pass
+    # the remaining args straight to the binary, so you can run a command
+    # (e.g. `setup`, `list`) even when a project with the same name exists.
+    if ($first -eq '-c' -or $first -eq '--command') {
+        & $shim @($a | Select-Object -Skip 1)
         return
     }
 
     # Flags (e.g. -v, --help) and multi-argument invocations are always passed
     # through to the real binary — they are subcommands with args or options.
-    if ($Arg0.StartsWith('-')) {
-        & $shim @($Arg0) @Rest
+    if ($first.StartsWith('-')) {
+        & $shim @a
         return
     }
-    if ($Rest -and $Rest.Count -gt 0) {
-        & $shim @($Arg0) @Rest
+    if ($a.Count -gt 1) {
+        & $shim @a
         return
     }
 
@@ -72,7 +70,7 @@ function scaff {
     # exists; otherwise fall through so the binary can run a same-named
     # subcommand (e.g. `scaff list`, `scaff setup`) or print its "not found"
     # error. To force the command instead, use `scaff -c <name>`.
-    $output = & $shim path $Arg0 2>$null
+    $output = & $shim path $first 2>$null
     if ($LASTEXITCODE -eq 0) {
         $dir = ($output | Select-Object -Last 1).Trim()
         if ($dir) {
@@ -80,5 +78,5 @@ function scaff {
             return
         }
     }
-    & $shim $Arg0
+    & $shim $first
 }
