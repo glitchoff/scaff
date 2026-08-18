@@ -15,12 +15,32 @@ A cross-platform developer CLI for project workspace registration, resolution, a
 
 ## Installation
 
+Install globally with your preferred package manager:
+
+```bash
+# pnpm
+pnpm add -g scaff-up
+
+# npm
+npm install -g scaff-up
+
+# bun
+bun add -g scaff-up
+
+# yarn
+yarn global add scaff-up
+```
+
+You can then use the `scaff` command anywhere.
+
+### Building from source
+
 ```bash
 pnpm install
 pnpm build
 ```
 
-The `scaff` binary is then available via the `bin` field in `package.json`.
+The `scaff` binary is available via the `bin` field in `package.json`.
 
 ### Prerequisites
 
