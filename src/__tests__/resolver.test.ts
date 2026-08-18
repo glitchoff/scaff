@@ -3,7 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addZone } from '../registry/index.js';
-import { listProjects, resolveProject } from '../resolver/index.js';
+import { listProjects, resolvePreferred, resolveProject } from '../resolver/index.js';
 
 // ---------------------------------------------------------------------------
 // Test fixture
@@ -91,6 +91,63 @@ describe('resolveProject', () => {
 
     const matches = resolveProject(registryPath, 'not-a-project');
     expect(matches).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolvePreferred
+// ---------------------------------------------------------------------------
+
+describe('resolvePreferred', () => {
+  it('resolves a project inside the default "hot" zone', () => {
+    addZone(registryPath, 'hot', zoneDir);
+    const projectPath = createProject('my-app');
+
+    const resolved = resolvePreferred(registryPath, 'my-app');
+    expect(resolved?.path).toBe(projectPath);
+    expect(resolved?.zone).toBe('hot');
+  });
+
+  it('prefers the hot zone even when the name is ambiguous across zones', () => {
+    const zone2 = path.join(tmpDir, 'zone2');
+    fs.mkdirSync(zone2);
+    addZone(registryPath, 'hot', zoneDir);
+    addZone(registryPath, 'cool', zone2);
+
+    const hotProject = createProject('shared-app');
+    fs.mkdirSync(path.join(zone2, 'shared-app'));
+
+    const resolved = resolvePreferred(registryPath, 'shared-app');
+    expect(resolved?.zone).toBe('hot');
+    expect(resolved?.path).toBe(hotProject);
+  });
+
+  it('returns null when the project only exists in a non-preferred zone', () => {
+    const zone2 = path.join(tmpDir, 'zone2');
+    fs.mkdirSync(zone2);
+    addZone(registryPath, 'hot', zoneDir);
+    addZone(registryPath, 'cool', zone2);
+    fs.mkdirSync(path.join(zone2, 'cool-app'));
+
+    // No "hot" match and a single unambiguous match elsewhere → returned.
+    const resolved = resolvePreferred(registryPath, 'cool-app');
+    expect(resolved?.zone).toBe('cool');
+  });
+
+  it('returns null when the project does not exist anywhere', () => {
+    addZone(registryPath, 'hot', zoneDir);
+    expect(resolvePreferred(registryPath, 'ghost')).toBeNull();
+  });
+
+  it('respects a custom preferred zone name', () => {
+    const zone2 = path.join(tmpDir, 'zone2');
+    fs.mkdirSync(zone2);
+    addZone(registryPath, 'base', zoneDir);
+    addZone(registryPath, 'other', zone2);
+    createProject('app');
+
+    const resolved = resolvePreferred(registryPath, 'app', 'base');
+    expect(resolved?.zone).toBe('base');
   });
 });
 

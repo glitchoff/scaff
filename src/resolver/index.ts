@@ -44,6 +44,39 @@ export function resolveProject(
 }
 
 /**
+ * Resolve a project by name, preferring the named zone (default `hot`).
+ *
+ * If the project exists inside the preferred zone, that match wins even if the
+ * same name exists elsewhere. Otherwise it falls back to standard resolution
+ * and only returns a result when the name is unambiguous.
+ *
+ * Returns null when the project is not found, or when it is ambiguous across
+ * multiple non-preferred zones.
+ */
+export function resolvePreferred(
+  registryPath: string,
+  projectName: string,
+  preferredZone = 'hot',
+): ResolvedProject | null {
+  const registry = readRegistry(registryPath);
+
+  const preferredPath = registry.zones[preferredZone];
+  if (preferredPath && fs.existsSync(preferredPath)) {
+    const candidate = path.join(preferredPath, projectName);
+    try {
+      if (fs.statSync(candidate).isDirectory()) {
+        return { zone: preferredZone, name: projectName, path: candidate };
+      }
+    } catch {
+      // Not present in the preferred zone — fall through to standard resolution.
+    }
+  }
+
+  const matches = resolveProject(registryPath, projectName);
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+/**
  * Enumerate every project directory across all registered zones.
  * Zones whose paths no longer exist on disk are silently skipped.
  */

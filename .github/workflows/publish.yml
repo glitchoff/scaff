@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
 
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
   id-token: write
@@ -31,11 +35,34 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
       - name: Test
         run: pnpm test
 
       - name: Build
         run: pnpm run build
+
+      - name: Smoke test the built CLI
+        shell: bash
+        run: |
+          export SCAFF_CONFIG_DIR="$RUNNER_TEMP/scaff-smoke"
+          mkdir -p "$SCAFF_CONFIG_DIR/work/demo-app"
+          node dist/main.js zone add "$SCAFF_CONFIG_DIR/work"
+          node dist/main.js path demo-app | grep -q "demo-app" && echo "path OK"
+          node dist/main.js --version
+
+      - name: Verify version matches the tag
+        shell: bash
+        run: |
+          pkg_ver=$(node -p "require('./package.json').version")
+          tag_ver="${GITHUB_REF_NAME#v}"
+          if [ "$pkg_ver" != "$tag_ver" ]; then
+            echo "package.json version ($pkg_ver) does not match tag ($tag_ver)" >&2
+            exit 1
+          fi
+          echo "Tag $tag_ver matches package.json"
 
       - name: Publish to npm (OIDC trusted publishing)
         run: npm publish --provenance

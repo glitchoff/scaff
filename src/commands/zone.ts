@@ -18,9 +18,18 @@ export function registerZoneCommands(program: Command, registryPath: string): vo
 
   // ── zone add ─────────────────────────────────────────────────────────────
   zone
-    .command('add <name> <path>')
-    .description('Register a named zone pointing to a directory')
-    .action((name: string, rawPath: string) => {
+    .command('add [name] [path]')
+    .description('Register a named zone pointing to a directory (name defaults to "hot")')
+    .action((nameOrPath: string | undefined, maybePath: string | undefined) => {
+      const name = maybePath === undefined ? 'hot' : (nameOrPath as string);
+      const rawPath = maybePath === undefined ? nameOrPath : maybePath;
+
+      if (!rawPath) {
+        console.error('scaff: missing required argument <path>');
+        process.exitCode = 1;
+        return;
+      }
+
       const resolved = path.resolve(rawPath);
 
       if (!fs.existsSync(resolved)) {
