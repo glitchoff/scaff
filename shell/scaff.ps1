@@ -24,10 +24,24 @@ function scaff {
         [string[]]$Rest
     )
 
-    $control = @('zone', 'list', 'open', 'path', 'go', '--version', '-v', '--help', '-h')
+    # Resolve the real shim on every call (never cache it). An earlier version
+    # cached `$global:__scaff_shim` once at profile-load time and broke
+    # permanently if scaff wasn't on PATH at that moment — e.g. right after a
+    # `pnpm install -g` that hadn't refreshed PATH, or after the binary moved.
+    $shim = (Get-Command scaff.cmd -CommandType Application -ErrorAction SilentlyContinue).Source
+    if (-not $shim) {
+        # Fall back to any external `scaff` entry (e.g. `scaff` w/o .CMD).
+        $shim = (Get-Command scaff -CommandType Application,ExternalScript -ErrorAction SilentlyContinue).Source
+    }
+    if (-not $shim) {
+        Write-Error 'scaff: binary not found on PATH. Install it with `pnpm i -g scaff-up` and re-run `scaff setup`.'
+        return
+    }
+
+    $control = @('zone', 'list', 'open', 'path', '--version', '-v', '--help', '-h')
 
     if ($Arg0 -and ($control -notcontains $Arg0)) {
-        $output = & scaff.cmd path $Arg0
+        $output = & $shim path $Arg0
         if ($LASTEXITCODE -eq 0) {
             $dir = ($output | Select-Object -Last 1).Trim()
             if ($dir) {
@@ -38,5 +52,5 @@ function scaff {
         return
     }
 
-    & scaff.cmd @($Arg0) @Rest
+    & $shim @($Arg0) @Rest
 }
