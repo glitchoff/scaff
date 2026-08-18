@@ -14,11 +14,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 //  - the test covers externally observable behavior (stdout, stderr, exit code)
 // ---------------------------------------------------------------------------
 
-// On Windows, .bin executables require the .cmd wrapper
-const TSX_BIN =
-  process.platform === 'win32'
-    ? path.resolve('node_modules', '.bin', 'tsx.cmd')
-    : path.resolve('node_modules', '.bin', 'tsx');
+// Invoke the CLI through Node directly (tsx's JS entry) rather than spawning a
+// `.cmd`/`.sh` shim. On Windows, `spawnSync` cannot execute `.cmd` files with
+// the default `shell: false`, which returned `status: null` and broke every
+// CLI test there. Running `node <tsx-cli>` avoids the shim entirely and works
+// on all platforms.
+const TSX_BIN = path.resolve('node_modules', 'tsx', 'dist', 'cli.mjs');
 const MAIN = path.resolve('src', 'main.ts');
 
 let tmpDir: string;
@@ -35,7 +36,7 @@ afterEach(() => {
 
 /** Run the CLI synchronously and return { stdout, stderr, status }. */
 function scaff(args: string[]): { stdout: string; stderr: string; status: number | null } {
-  const result = spawnSync(TSX_BIN, [MAIN, ...args], {
+  const result = spawnSync(process.execPath, [TSX_BIN, MAIN, ...args], {
     encoding: 'utf8',
     env,
     cwd: path.resolve('.'),
