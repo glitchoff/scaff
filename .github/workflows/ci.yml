@@ -50,6 +50,32 @@ jobs:
         run: |
           pnpm pack --pack-destination "$RUNNER_TEMP" >/dev/null
           pkg=$(ls "$RUNNER_TEMP"/*.tgz | head -n1)
-          echo "== dist ==" && tar -tzf "$pkg" | grep 'package/dist/main.js'
-          echo "== shell wrappers ==" && tar -tzf "$pkg" | grep 'package/shell/scaff.ps1'
-          echo "== shell wrappers ==" && tar -tzf "$pkg" | grep 'package/shell/scaff.sh'
+          node - "$pkg" <<'NODE'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const file = process.argv[2];
+          // Read a gzip tarball and list its entry names (cross-platform; avoids
+          // `tar` misreading Windows `D:\` paths as a remote host spec).
+          const data = zlib.gunzipSync(fs.readFileSync(file));
+          const entries = [];
+          let off = 0;
+          while (off + 512 <= data.length) {
+            const name = data.toString('utf8', off, off + 100).replace(/\0.*$/, '');
+            if (!name) break;
+            const size = parseInt(data.toString('utf8', off + 124, off + 136).trim(), 8);
+            entries.push(name);
+            off += 512 + Math.ceil(size / 512) * 512;
+          }
+          const required = [
+            'package/dist/main.js',
+            'package/shell/scaff.ps1',
+            'package/shell/scaff.sh',
+          ];
+          const missing = required.filter((f) => !entries.includes(f));
+          if (missing.length) {
+            console.error('Missing from tarball: ' + missing.join(', '));
+            console.error('Entries: ' + entries.join('\n'));
+            process.exit(1);
+          }
+          console.log('tarball OK: ' + required.join(', '));
+          NODE
