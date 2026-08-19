@@ -27,14 +27,12 @@
   "packageManager": "pnpm@10.30.3",
   "scripts": {
     "build": "tsup",
-    "dev": "tsx src/main.ts",
+    "dev": "tsx src/cli/main.ts",
     "start": "node dist/main.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "dependencies": {
-    "commander": "^15.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^26.2.0",
     "tsup": "^8.5.0",

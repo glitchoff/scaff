@@ -37,8 +37,8 @@ export function getConfigDir(): string {
 }
 
 /**
- * Returns the absolute path to the registry JSON file.
+ * Returns the absolute path to the config JSON file.
  */
-export function getRegistryPath(): string {
-  return path.join(getConfigDir(), 'registry.json');
+export function getConfigPath(): string {
+  return path.join(getConfigDir(), 'config.json');
 }

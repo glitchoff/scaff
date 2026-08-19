@@ -1,86 +1,129 @@
-import { Command } from 'commander';
-import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { addZone, removeZone, listZones } from '../registry/index.js';
+import * as path from 'node:path';
+import { isValidZoneName, loadConfig, saveConfig } from '../core/registry/store.js';
+import type { ParsedArgs } from '../cli/args.js';
+import { flag } from '../cli/args.js';
 
-/**
- * Registers the `zone` sub-command group on the given Commander program.
- *
- * Commands:
- *   scaff zone add <name> <path>   Register a new named zone
- *   scaff zone remove <name>       Remove a zone by name
- *   scaff zone list                List all registered zones
- */
-export function registerZoneCommands(program: Command, registryPath: string): void {
-  const zone = program
-    .command('zone')
-    .description('Manage registered project zones (workspace root directories)');
+export async function runZone(configPath: string, args: ParsedArgs): Promise<number> {
+  const sub = args.positionals[0];
+  switch (sub) {
+    case 'add':
+      return zoneAdd(configPath, args);
+    case 'rm':
+    case 'remove':
+      return zoneRm(configPath, args);
+    case 'ls':
+    case 'list':
+      return zoneLs(configPath);
+    case 'primary':
+      return zonePrimary(configPath, args);
+    case 'info':
+      return zoneInfo(configPath, args);
+    default:
+      console.error('scaff: unknown -zone subcommand. Use: add | rm | ls | primary | info');
+      return 1;
+  }
+}
 
-  // ── zone add ─────────────────────────────────────────────────────────────
-  zone
-    .command('add [name] [path]')
-    .description('Register a named zone pointing to a directory (name defaults to "hot")')
-    .action((nameOrPath: string | undefined, maybePath: string | undefined) => {
-      const name = maybePath === undefined ? 'hot' : (nameOrPath as string);
-      const rawPath = maybePath === undefined ? nameOrPath : maybePath;
+function zoneAdd(configPath: string, args: ParsedArgs): number {
+  const [name, ...dirs] = args.positionals.slice(1);
+  if (!name || dirs.length === 0) {
+    console.error('scaff: usage: -zone add <name> <dir> [dir...]');
+    return 1;
+  }
+  if (!isValidZoneName(name)) {
+    console.error(`scaff: invalid zone name "${name}" (cannot start with '-' or contain ':')`);
+    return 1;
+  }
+  const resolved = dirs.map((d) => path.resolve(d));
+  for (const d of resolved) {
+    if (!fs.existsSync(d) || !fs.statSync(d).isDirectory()) {
+      console.error(`scaff: not a directory: ${d}`);
+      return 1;
+    }
+  }
+  const config = loadConfig(configPath);
+  config.zones[name] = resolved;
+  if (flag(args.options, 'primary')) config.primary = name;
+  saveConfig(configPath, config);
+  console.log(`✔ Zone "${name}" registered (${resolved.length} dir${resolved.length === 1 ? '' : 's'}).`);
+  return 0;
+}
 
-      if (!rawPath) {
-        console.error('scaff: missing required argument <path>');
-        process.exitCode = 1;
-        return;
-      }
+function zoneRm(configPath: string, args: ParsedArgs): number {
+  const name = args.positionals[1];
+  if (!name) {
+    console.error('scaff: usage: -zone rm <name>');
+    return 1;
+  }
+  const config = loadConfig(configPath);
+  if (!config.zones[name]) {
+    console.error(`scaff: zone "${name}" is not registered.`);
+    return 1;
+  }
+  delete config.zones[name];
+  if (config.primary === name) config.primary = null;
+  saveConfig(configPath, config);
+  console.log(`✔ Zone "${name}" removed.`);
+  return 0;
+}
 
-      const resolved = path.resolve(rawPath);
+function zoneLs(configPath: string): number {
+  const config = loadConfig(configPath);
+  const names = Object.keys(config.zones);
+  if (names.length === 0) {
+    console.log('No zones registered. Use `scaff -zone add <name> <dir>` to add one.');
+    return 0;
+  }
+  names.sort();
+  const marker = (n: string) => (config.primary === n ? ' (primary)' : '');
+  for (const n of names) {
+    console.log(`[${n}]${marker(n)}`);
+    for (const d of config.zones[n]!) {
+      console.log(`  • ${d}`);
+    }
+  }
+  return 0;
+}
 
-      if (!fs.existsSync(resolved)) {
-        console.error(`scaff: path does not exist: ${resolved}`);
-        process.exitCode = 1;
-        return;
-      }
+function zonePrimary(configPath: string, args: ParsedArgs): number {
+  const config = loadConfig(configPath);
+  if (flag(args.options, 'clear')) {
+    config.primary = null;
+    saveConfig(configPath, config);
+    console.log('✔ Primary zone cleared.');
+    return 0;
+  }
+  const name = args.positionals[1];
+  if (!name) {
+    console.error('scaff: usage: -zone primary <name> | -zone primary --clear');
+    return 1;
+  }
+  if (!config.zones[name]) {
+    console.error(`scaff: zone "${name}" is not registered.`);
+    return 1;
+  }
+  config.primary = name;
+  saveConfig(configPath, config);
+  console.log(`✔ Primary zone set to "${name}".`);
+  return 0;
+}
 
-      if (!fs.statSync(resolved).isDirectory()) {
-        console.error(`scaff: path is not a directory: ${resolved}`);
-        process.exitCode = 1;
-        return;
-      }
-
-      addZone(registryPath, name, resolved);
-      console.log(`✔ Zone "${name}" registered → ${resolved}`);
-    });
-
-  // ── zone remove ──────────────────────────────────────────────────────────
-  zone
-    .command('remove <name>')
-    .alias('rm')
-    .description('Remove a registered zone by name')
-    .action((name: string) => {
-      try {
-        removeZone(registryPath, name);
-        console.log(`✔ Zone "${name}" removed.`);
-      } catch (err) {
-        console.error(`scaff: ${(err as Error).message}`);
-        process.exitCode = 1;
-      }
-    });
-
-  // ── zone list ────────────────────────────────────────────────────────────
-  zone
-    .command('list')
-    .alias('ls')
-    .description('List all registered zones')
-    .action(() => {
-      const zones = listZones(registryPath);
-
-      if (zones.length === 0) {
-        console.log('No zones registered. Use `scaff zone add <name> <path>` to add one.');
-        return;
-      }
-
-      const nameWidth = Math.max(...zones.map((z) => z.name.length), 4);
-      console.log(`${'NAME'.padEnd(nameWidth)}  PATH`);
-      console.log(`${'─'.repeat(nameWidth)}  ${'─'.repeat(40)}`);
-      for (const z of zones) {
-        console.log(`${z.name.padEnd(nameWidth)}  ${z.path}`);
-      }
-    });
+function zoneInfo(configPath: string, args: ParsedArgs): number {
+  const name = args.positionals[1];
+  if (!name) {
+    console.error('scaff: usage: -zone info <name>');
+    return 1;
+  }
+  const config = loadConfig(configPath);
+  const dirs = config.zones[name];
+  if (!dirs) {
+    console.error(`scaff: zone "${name}" is not registered.`);
+    return 1;
+  }
+  console.log(`[${name}]${config.primary === name ? ' (primary)' : ''}`);
+  for (const d of dirs) {
+    console.log(`  • ${d}`);
+  }
+  return 0;
 }
