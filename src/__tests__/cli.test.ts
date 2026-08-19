@@ -74,7 +74,9 @@ describe('scaff -path', () => {
   });
 
   it('reports not-found for a bare name outside the primary zone', () => {
+    mkDir('pers', 'in-primary');
     mkDir('work', 'only');
+    scaff(['-zone', 'add', 'hot', path.join(tmpDir, 'pers'), '--primary']);
     scaff(['-zone', 'add', 'work', path.join(tmpDir, 'work')]);
     const r = scaff(['-path', 'only']);
     expect(r.status).not.toBe(0);
