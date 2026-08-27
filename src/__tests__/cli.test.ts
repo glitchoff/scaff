@@ -39,9 +39,9 @@ describe('scaff -zone', () => {
     const d1 = mkDir('pers');
     expect(scaff(['-zone', 'add', 'hot', d1]).status).toBe(0);
     scaff(['-zone', 'hot', 'hot']);
-    expect(scaff(['-zone', 'ls']).stdout).toContain('[hot] [hot]');
+    expect(scaff(['-zone', 'ls']).stdout).toContain('hot [hot]');
     expect(scaff(['-zone', 'hot', '--clear']).status).toBe(0);
-    expect(scaff(['-zone', 'ls']).stdout).not.toContain('[hot] [hot]');
+    expect(scaff(['-zone', 'ls']).stdout).not.toContain('hot [hot]');
   });
 
   it('rejects a zone name that starts with -', () => {
@@ -92,3 +92,4 @@ describe('scaff command dispatch', () => {
     expect(r.stderr).toMatch(/unknown command/i);
   });
 });
+
