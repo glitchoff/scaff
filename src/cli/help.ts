@@ -28,6 +28,8 @@ COMMANDS
   -open <name|zone:name>    resolve and open a project
   -new  [name]              scaffold a new project (interactive)
   -create [name]            alias for -new
+  -update                   check & auto-update scaff (runs migrations)
+  -check-update             check for updates without installing
   -zone ...                 manage zones
 
 ZONE COMMANDS

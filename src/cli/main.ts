@@ -9,6 +9,7 @@ import { runOpen } from '../commands/open.js';
 import { runSetup } from '../commands/setup.js';
 import { runAlias } from '../commands/alias.js';
 import { runNew } from '../commands/new.js';
+import { checkForUpdate, runUpdate } from '../core/update/index.js';
 
 const configPath = getConfigPath();
 
@@ -55,6 +56,11 @@ function dispatchCommand(command: string, rest: string[]): Promise<number> {
     case '-new':
     case '-create':
       return runNew(configPath, args);
+    case '-update':
+    case '-upgrade':
+      return runUpdate(args.options['check'] === true);
+    case '-check-update':
+      return runUpdate(true);
     default:
       console.error(`scaff: unknown command "${command}".`);
       console.log('');
@@ -62,6 +68,9 @@ function dispatchCommand(command: string, rest: string[]): Promise<number> {
       return Promise.resolve(1);
   }
 }
+
+// Non-blocking update check (daily cache)
+checkForUpdate().catch(() => {});
 
 main()
   .then((code) => {
