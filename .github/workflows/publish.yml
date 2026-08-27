@@ -49,9 +49,10 @@ jobs:
         run: |
           export SCAFF_CONFIG_DIR="$RUNNER_TEMP/scaff-smoke"
           mkdir -p "$SCAFF_CONFIG_DIR/work/demo-app"
-          node dist/main.js -zone add hot "$SCAFF_CONFIG_DIR/work" --primary
-          node dist/main.js -path demo-app | grep -q "demo-app" && echo "path OK"
-          node dist/main.js -zone ls | grep -q "primary" && echo "primary OK"
+          node dist/main.js -zone add hot "$SCAFF_CONFIG_DIR/work"
+          node dist/main.js -zone hot hot
+          node dist/main.js demo-app | grep -q "demo-app" && echo "path OK"
+          node dist/main.js -zone ls | grep -q "hot" && echo "hot OK"
           node dist/main.js -version
 
       - name: Verify version matches the tag
