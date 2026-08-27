@@ -53,12 +53,8 @@ function normalize(config: Config): Config {
     if (!isValidZoneName(name)) continue;
     if (typeof dir === 'string' && dir.length > 0) zones[name] = dir;
   }
-  let hot = (config as unknown as Record<string, unknown>)['hot'] as string | null;
-  let hotClean = hot && zones[hot] ? hot : null;
-  if (!hotClean && Object.keys(zones).length === 1) hotClean = Object.keys(zones)[0]!;
-  if (hotClean !== hot) {
-    // persist auto hot fix
-  }
+  const hot = (config as unknown as Record<string, unknown>)['hot'] as string | null;
+  const hotClean = hot && zones[hot] ? hot : null;
   return { version: CURRENT_VERSION, hot: hotClean, zones };
 }
 
