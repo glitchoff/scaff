@@ -22,23 +22,11 @@ export async function runConfig(configPath: string, args: ParsedArgs): Promise<n
 
 async function wizardNew(cwd:string, name:string){
   console.log(chalk.cyan(`\n Configure ${chalk.bold(name)}\n`));
-  const { MultiSelect } = Enquirer as unknown as {MultiSelect: new(o:unknown)=>{run():Promise<string[]>}};
-  const choices = await new MultiSelect({
-    name:'actions', message: chalk.cyan('What should happen when this project opens? (Space to toggle, Enter to confirm)'),
-    choices: [
-      {name:'editor', message:'Open an editor'},
-      {name:'command', message:'Start a development command'},
-      {name:'browser', message:'Open a browser'},
-      {name:'terminal', message:'Open project terminal'},
-    ],
-    initial: [0,1,2,3],
-  }).run().catch(()=>null) as string[]|null;
-  if(!choices) { console.log(chalk.yellow(' Cancelled')); return 1; }
-  if(choices.length===0){ console.log(chalk.yellow(' No items selected — using defaults (all)')); choices.push('editor','command','browser','terminal'); }
-  const wantEditor = choices.includes('editor');
-  const wantCommand = choices.includes('command');
-  const wantBrowser = choices.includes('browser');
-  const wantTerminal = choices.includes('terminal');
+  const { Confirm } = Enquirer as unknown as {Confirm: new(o:unknown)=>{run():Promise<boolean>}};
+  const wantEditor = await new Confirm({name:'editor', message: chalk.cyan('Open an editor?'), initial:true}).run().catch(()=>true);
+  const wantCommand = await new Confirm({name:'command', message: chalk.cyan('Start a development command?'), initial:true}).run().catch(()=>true);
+  const wantBrowser = await new Confirm({name:'browser', message: chalk.cyan('Open a browser?'), initial:true}).run().catch(()=>true);
+  const wantTerminal = await new Confirm({name:'terminal', message: chalk.cyan('Open project terminal?'), initial:true}).run().catch(()=>true);
 
   const det = detect(cwd);
   let editor: string|null = null;
