@@ -77,7 +77,7 @@ function zoneRm(configPath: string, args: ParsedArgs): number {
     return 1;
   }
   delete config.zones[name];
-  if (config.primary === name) config.primary = null;
+  if (config.hot === name) config.hot = null;
   saveConfig(configPath, config);
   console.log(`✔ Zone "${name}" removed.`);
   return 0;

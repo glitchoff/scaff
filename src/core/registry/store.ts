@@ -19,7 +19,7 @@ export function loadConfig(configPath: string): Config {
   }
   if (!isConfig(parsed)) return emptyConfig();
   // wipe old data if version mismatch or old shape (array zones / primary)
-  const v = parsed as Record<string, unknown>;
+  const v = parsed as unknown as Record<string, unknown>;
   if (v['version'] !== CURRENT_VERSION || 'primary' in v || hasArrayZones(v)) {
     const clean = emptyConfig();
     try { saveConfig(configPath, clean); } catch {}
@@ -53,7 +53,7 @@ function normalize(config: Config): Config {
     if (!isValidZoneName(name)) continue;
     if (typeof dir === 'string' && dir.length > 0) zones[name] = dir;
   }
-  const hot = (config as Record<string, unknown>)['hot'] as string | null;
+  const hot = (config as unknown as Record<string, unknown>)['hot'] as string | null;
   const hotClean = hot && zones[hot] ? hot : null;
   return { version: CURRENT_VERSION, hot: hotClean, zones };
 }

@@ -55,7 +55,7 @@ export async function runNew(configPath: string, args: ParsedArgs): Promise<numb
     return 1;
   }
 
-  const zoneDir = config.zones[zone]![0]!;
+  const zoneDir = config.zones[zone] as unknown as string;
   const projectPath = path.join(zoneDir, name);
   if (fs.existsSync(projectPath)) { console.error(chalk.red(`  "${projectPath}" already exists`)); return 1; }
 
@@ -95,10 +95,10 @@ function detectPM(args: ParsedArgs): string {
 }
 async function pickZone(config: ReturnType<typeof loadConfig>): Promise<string> {
   const names = Object.keys(config.zones).sort();
-  const choices = names.map((n) => ({ name: n, message: `${n}${config.primary===n ? chalk.yellow(' *primary'):''}  ${chalk.dim(config.zones[n]![0]!)}` }));
+  const choices = names.map((n) => ({ name: n, message: `${n}${(config as unknown as Record<string,string>).hot===n ? chalk.yellow(' *hot'):''}  ${chalk.dim(config.zones[n] as unknown as string)}` }));
   const res = await (Enquirer as unknown as { prompt: (q: unknown) => Promise<Record<string,string>> }).prompt({
     type: 'select', name: 'zone', message: 'Select zone', choices,
-    initial: names.indexOf(config.primary ?? names[0]!),
+    initial: names.indexOf(((config as unknown as Record<string,string>).hot) ?? names[0]!),
   });
   return res.zone;
 }
