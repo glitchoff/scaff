@@ -35,8 +35,11 @@ export async function runZoneAddDot(configPath: string): Promise<number> {
   const config = loadConfig(configPath);
   if (config.zones[name]) { console.error(`scaff: zone "${name}" already exists (no overwrite)`); return 1; }
   config.zones[name]=dir;
-  const confirm = new Enquirer.Confirm({ name:'hot', message:'make hot?', initial:false });
-  if (await confirm.run()) config.hot=name;
+  if (!config.hot) config.hot=name;
+  else {
+    const confirm = new Enquirer.Confirm({ name:'hot', message:'make hot?', initial:false });
+    if (await confirm.run()) config.hot=name;
+  }
   saveConfig(configPath, config);
   console.log(`✔ Zone "${name}" added (${dir})${config.hot===name?' [hot]':''}`);
   return 0;
@@ -60,8 +63,9 @@ function zoneAdd(configPath: string, args: ParsedArgs): number {
   const config = loadConfig(configPath);
   if (config.zones[name]) { console.error(`scaff: zone "${name}" already exists`); return 1; }
   config.zones[name] = resolved;
+  if (!config.hot) config.hot = name;
   saveConfig(configPath, config);
-  console.log(`✔ Zone "${name}" registered (${resolved}).`);
+  console.log(`✔ Zone "${name}" registered (${resolved})${config.hot===name?' [hot]':''}.`);
   return 0;
 }
 
