@@ -46,6 +46,8 @@ async function main(): Promise<number> {
 function dispatchCommand(command: string, rest: string[]): Promise<number> {
   const args = parseArgs(rest);
   switch (command) {
+    case '-add':
+      return import('../commands/zone.js').then(m=>m.runZoneAddInteractive(configPath, args));
     case '-list':
     case '-ls':
       return runList(configPath, args);
@@ -58,6 +60,8 @@ function dispatchCommand(command: string, rest: string[]): Promise<number> {
       return Promise.resolve(runZone(configPath, args));
     case '-alias':
       { const { runAlias } = require('../commands/alias.js'); return runAlias(args); }
+    case '-hot':
+      return import('../commands/zone.js').then(m=>m.runZoneHotSet(configPath, args));
     default:
       console.error(`scaff: unknown command "${command}".`);
       console.log(HELP);

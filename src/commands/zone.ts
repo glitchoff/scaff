@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { isValidZoneName, loadConfig, saveConfig } from '../core/registry/store.js';
 import type { ParsedArgs } from '../cli/args.js';
 import { flag } from '../cli/args.js';
+import chalk from 'chalk';
 
 export async function runZone(configPath: string, args: ParsedArgs): Promise<number> {
   const sub = args.positionals[0];
@@ -91,13 +92,68 @@ function zoneLs(configPath: string): number {
   const config = loadConfig(configPath);
   const names = Object.keys(config.zones);
   if (names.length === 0) {
-    console.log('No zones. Use `scaff .` or `scaff -zone add <name> <dir>`.');
+    console.log(chalk.yellow('No zones. Use `scaff .` or `scaff -add` or `scaff -zone add <name> <dir>`.'));
     return 0;
   }
   names.sort();
   for (const n of names) {
-    console.log(`[${n}]${config.hot === n ? ' [hot]' : ''} -> ${config.zones[n]}`);
+    const isHot = config.hot === n;
+    console.log(`${isHot?chalk.red('★'): ' '} ${chalk.bold(n)}${isHot?chalk.red(' [hot]'):chalk.dim('')} ${chalk.dim('->')} ${config.zones[n]}`);
   }
+  return 0;
+}
+
+export async function runZoneAddInteractive(configPath: string, args: ParsedArgs): Promise<number> {
+  const Enquirer = (await import('enquirer')).default as unknown as { Input: new(o:unknown)=>{run():Promise<string>}, Confirm: new(o:unknown)=>{run():Promise<boolean>} };
+  let name = args.positionals[0];
+  let dirArg = args.positionals[1];
+  if (!name) {
+    const p = new Enquirer.Input({ name:'name', message: chalk.cyan('Zone name'), validate:(v:string)=>isValidZoneName(v)?true:'invalid (no - or :)' });
+    name = await p.run();
+  }
+  if (!dirArg) {
+    const p = new Enquirer.Input({ name:'dir', message: chalk.cyan('Folder path'), initial: process.cwd(), validate:(v:string)=>fs.existsSync(path.resolve(v))?true:'not found' });
+    dirArg = await p.run();
+  }
+  if (!isValidZoneName(name)) { console.error(chalk.red(` invalid zone name "${name}"`)); return 1; }
+  const resolved = path.resolve(dirArg);
+  if (!fs.existsSync(resolved)) { console.error(chalk.red(` not a directory: ${resolved}`)); return 1; }
+  const config = loadConfig(configPath);
+  if (config.zones[name]) { console.error(chalk.red(` zone "${name}" already exists`)); return 1; }
+  const wasHot = config.hot;
+  if (!config.hot) config.hot = name;
+  config.zones[name]=resolved;
+  saveConfig(configPath, config);
+  console.log(chalk.green(`✔ Zone "${chalk.bold(name)}" added ${chalk.dim(resolved)} ${config.hot===name?chalk.red('[hot]'):''}`));
+  if (wasHot) console.log(chalk.dim(`  Current hot: "${wasHot}"`));
+  if (config.hot===name && wasHot!==name && wasHot) {
+    // already set as hot because first zone, still inform
+  }
+  if (config.hot !== name) {
+    console.log(chalk.yellow(`  "${name}" is not hot (hot is "${config.hot}")`));
+    const c = new Enquirer.Confirm({ name:'switch', message: chalk.cyan(`Switch hot to "${name}"?`), initial:false });
+    if (await c.run()) { config.hot=name; saveConfig(configPath, config); console.log(chalk.green(`✔ Hot switched to "${name}"`)); }
+  } else if (!wasHot) {
+    console.log(chalk.green(`  "${name}" is now ${chalk.red('hot')} (first zone)`));
+  } else if (wasHot===name) {
+    // already hot
+  }
+  return 0;
+}
+
+export async function runZoneHotSet(configPath: string, args: ParsedArgs): Promise<number> {
+  const config = loadConfig(configPath);
+  const names = Object.keys(config.zones);
+  if (names.length===0) { console.error(chalk.red(' No zones. Use scaff -add first.')); return 1; }
+  let target = args.positionals[0];
+  if (!target) {
+    const Enquirer = (await import('enquirer')).default as unknown as { AutoComplete: new(o:unknown)=>{run():Promise<string>} };
+    const p = new Enquirer.AutoComplete({ name:'hot', message: chalk.cyan('Pick hot zone'), choices: names.map(n=>({name:n, message:`${n}${config.hot===n?chalk.red(' [hot]'):''} ${chalk.dim(config.zones[n] as string)}`})) });
+    target = await p.run();
+  }
+  if (!config.zones[target]) { console.error(chalk.red(` zone "${target}" not found`)); return 1; }
+  config.hot=target; saveConfig(configPath, config);
+  console.log(chalk.green(`✔ Hot is now "${chalk.bold(target)}" ${chalk.dim(config.zones[target] as string)}`));
   return 0;
 }
 

@@ -1,24 +1,27 @@
+import chalk from 'chalk';
 import { readPackage } from './locate.js';
 const PKG = readPackage(import.meta.url) as { version: string };
 export function version(): string { return PKG.version; }
-export const HELP = `scaff — your projects, one word away
+export const HELP = `scaff — your projects, one word away  ${chalk.dim('v'+version())}
 
 USAGE
-  scaff <name>              open project in hot zone (cds with shell integration)
+  scaff <name>              open project in hot zone (cds)
   scaff <zone>:<name>       open project in specific zone
-  scaff :<name>             shorthand for hot:<name>  (e.g. scaff :new -> hot:new)
-  scaff .                   add current directory as zone (prompts for zone name, optional make hot)
-  scaff new [name]          scaffold a new project (only command without -)
+  scaff :<name>             shorthand for hot:<name>
+  scaff .                   add current dir as zone (prompts)
+  scaff new [name]          scaffold new project (only without -)
 
 COMMANDS
-  -zone add <name> <dir>    add zone (single dir per zone)
+  -add [name] [dir]         add zone (interactive, asks folder+name, shows hot switch)
+  -zone add <name> <dir>    add zone (single dir)
   -zone rm <name>           remove zone
-  -zone ls                  list zones (marks [hot])
+  -zone ls                  list zones (★ [hot])
   -zone hot <name>          set hot zone
   -zone hot --clear         clear hot zone
   -zone info <name>         show zone dir
-  -list [query]             interactive list with [hot] label (filters by query)
-  -open [name]              open project (prompts picker if no name)
-  -help, -h                 show this help
-  -version, -v              print version
+  -hot [name]               set hot (interactive picker if no name)
+  -list [query]             interactive list with [hot] label
+  -open [name]              open project (picker if no name)
+  -help, -h                 help
+  -version, -v              version
 `;
