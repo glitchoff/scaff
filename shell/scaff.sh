@@ -4,17 +4,18 @@ scaff() {
   shift || true
   if [ -z "$first" ]; then command scaff; return $?; fi
   case "$first" in
-    config|new|list|ls) command scaff "$first" "$@"; return $? ;;
-    -list|-ls|-find|-f|-open|list|ls)
-      local out; out="$(command scaff "$first" "$@" 2>/dev/null)"; local ec=$?
-      local last="$(echo "$out" | tail -n1 | tr -d '\r')"
-      if [ -d "$last" ]; then cd "$last" 2>/dev/null; echo "$out"; return 0; fi
-      echo "$out"; return $ec ;;
-    -*) command scaff "$first" "$@"; return $? ;;
+    -list|-ls|-find|-f|-open|-add|-hot|-zone|-config|-help|-version|-h|-v) command scaff "$first" "$@"; return $? ;;
   esac
-  local dir; dir="$(command scaff -path "$first" 2>/dev/null)"
-  if [ -n "$dir" ] && [ -d "$dir" ]; then cd "$dir" || return 1; return 0; fi
-  dir="$(command scaff "$first" 2>/dev/null | tail -n1 | tr -d '\r')"
-  if [ -n "$dir" ] && [ -d "$dir" ]; then cd "$dir" || return 1; echo "$dir"; return 0; fi
-  command scaff "$first" "$@"
+  case "$first" in
+    config|new|list|ls|create|help|version)
+      local out; out="$(command scaff "$first" "$@" 2>&1)"; local ec=$?
+      local last="$(printf "%s\n" "$out" | tail -n1 | tr -d '\r' | xargs 2>/dev/null || echo "$last")"
+      last="$(echo "$out" | tail -n1 | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+      if [ -d "$last" ]; then cd "$last" 2>/dev/null; fi
+      printf "%s\n" "$out"; return $ec ;;
+  esac
+  local out; out="$(command scaff "$first" "$@" 2>&1)"; local ec=$?
+  local last="$(echo "$out" | tail -n1 | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  if [ $ec -eq 0 ] && [ -d "$last" ]; then cd "$last" 2>/dev/null; return 0; fi
+  printf "%s\n" "$out"; return $ec
 }
