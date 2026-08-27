@@ -38,17 +38,22 @@ export async function runNew(configPath: string, args: ParsedArgs): Promise<numb
   let zone = opt(args.options, 'zone') ?? opt(args.options, 'in');
   let template = opt(args.options, 'template') as Template | undefined;
 
-  if (!name) {
-    const res = await (Enquirer as unknown as { prompt: (q: unknown) => Promise<Record<string,string>> }).prompt({
-      type: 'input', name: 'name', message: chalk.cyan('Project name'),
-      validate: (v: string) => /^[a-z0-9-_]+$/i.test(v) || 'Use letters, numbers, - _',
-    });
-    name = res.name;
+  try {
+    if (!name) {
+      const res = await (Enquirer as unknown as { prompt: (q: unknown) => Promise<Record<string,string>> }).prompt({
+        type: 'input', name: 'name', message: chalk.cyan('Project name'),
+        validate: (v: string) => /^[a-z0-9-_]+$/i.test(v) || 'Use letters, numbers, - _',
+      });
+      name = res.name;
+    }
+    if (!name || !/^[a-z0-9-_]+$/i.test(name)) { console.error(chalk.red('  Invalid project name')); return 1; }
+    if (!zone) zone = await pickZone(config);
+    if (!config.zones[zone]) { console.error(chalk.red(`  Unknown zone "${zone}"`)); return 1; }
+    if (!template || !TEMPLATES.includes(template as Template)) template = await pickTemplate() as Template;
+  } catch {
+    console.log(chalk.yellow('\n  Cancelled.'));
+    return 1;
   }
-  if (!name || !/^[a-z0-9-_]+$/i.test(name)) { console.error(chalk.red('  Invalid project name')); return 1; }
-  if (!zone) zone = await pickZone(config);
-  if (!config.zones[zone]) { console.error(chalk.red(`  Unknown zone "${zone}"`)); return 1; }
-  if (!template || !TEMPLATES.includes(template as Template)) template = await pickTemplate() as Template;
 
   const zoneDir = config.zones[zone]![0]!;
   const projectPath = path.join(zoneDir, name);
