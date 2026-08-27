@@ -32,7 +32,10 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "dependencies": {},
+  "dependencies": {
+    "chalk": "^6.0.0",
+    "enquirer": "^2.4.1"
+  },
   "devDependencies": {
     "@types/node": "^26.2.0",
     "tsup": "^8.5.0",

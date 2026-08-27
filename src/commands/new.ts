@@ -1,10 +1,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync, spawnSync as _sp } from 'node:child_process';
-import * as readline from 'node:readline';
 import { loadConfig } from '../core/registry/store.js';
 import type { ParsedArgs } from '../cli/args.js';
 import { flag, opt } from '../cli/args.js';
+import Enquirer from 'enquirer';
+import chalk from 'chalk';
 
 function hasCmd(c: string): boolean {
   try { const r = _sp(process.platform === 'win32' ? 'where' : 'which', [c]); return r.status === 0; } catch { return false; }
@@ -13,55 +14,53 @@ function hasCmd(c: string): boolean {
 const TEMPLATES = ['next', 'vite', 'bun', 'turbo', 't3'] as const;
 type Template = (typeof TEMPLATES)[number];
 
+const BANNER = chalk.cyan(`
+  ███████╗ ██████╗ █████╗ ███████╗███████╗
+  ██╔════╝██╔════╝██╔══██╗██╔════╝██╔════╝
+  ███████╗██║     ███████║█████╗  █████╗
+  ╚════██║██║     ██╔══██║██╔══╝  ██╔══╝
+  ███████║╚██████╗██║  ██║██║     ██║
+  ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝  ${chalk.dim('v0.4')}
+`);
+
 export async function runNew(configPath: string, args: ParsedArgs): Promise<number> {
+  console.log(BANNER);
   const config = loadConfig(configPath);
   const zones = Object.keys(config.zones);
   if (zones.length === 0) {
-    console.error('scaff: no zones registered. Run `scaff -zone add <name> <dir>` first.');
+    console.error(chalk.red('  No zones registered. Run `scaff -zone add <name> <dir>` first.'));
     return 1;
   }
 
-  // Passthrough after -- (forward to create-* CLI)
-  const passthrough = args.positionals.includes('--')
-    ? args.positionals.slice(args.positionals.indexOf('--') + 1)
-    : [];
+  const passthrough = args.positionals.includes('--') ? args.positionals.slice(args.positionals.indexOf('--') + 1) : [];
   const filteredPos = args.positionals.filter((p) => p !== '--' && !passthrough.includes(p));
-
   let name = filteredPos[0];
   let zone = opt(args.options, 'zone') ?? opt(args.options, 'in');
   let template = opt(args.options, 'template') as Template | undefined;
 
-  if (!name) name = await ask(`Project name: `);
-  if (!name || !/^[a-z0-9-_]+$/i.test(name)) {
-    console.error('scaff: invalid project name (use letters, numbers, - _)');
-    return 1;
+  if (!name) {
+    const res = await (Enquirer as unknown as { prompt: (q: unknown) => Promise<Record<string,string>> }).prompt({
+      type: 'input', name: 'name', message: chalk.cyan('Project name'),
+      validate: (v: string) => /^[a-z0-9-_]+$/i.test(v) || 'Use letters, numbers, - _',
+    });
+    name = res.name;
   }
+  if (!name || !/^[a-z0-9-_]+$/i.test(name)) { console.error(chalk.red('  Invalid project name')); return 1; }
   if (!zone) zone = await pickZone(config);
-  if (!config.zones[zone]) {
-    console.error(`scaff: unknown zone "${zone}"`);
-    return 1;
-  }
-  if (!template || !TEMPLATES.includes(template as Template)) {
-    template = (await pickTemplate()) as Template;
-  }
+  if (!config.zones[zone]) { console.error(chalk.red(`  Unknown zone "${zone}"`)); return 1; }
+  if (!template || !TEMPLATES.includes(template as Template)) template = await pickTemplate() as Template;
 
   const zoneDir = config.zones[zone]![0]!;
   const projectPath = path.join(zoneDir, name);
-  if (fs.existsSync(projectPath)) {
-    console.error(`scaff: "${projectPath}" already exists`);
-    return 1;
-  }
+  if (fs.existsSync(projectPath)) { console.error(chalk.red(`  "${projectPath}" already exists`)); return 1; }
 
   const pm = detectPM(args);
   const cmd = buildCommand(template as Template, name, pm, passthrough, flag(args.options, 'yes'));
-
-  console.log(`\n→ scaffolding ${template} → ${projectPath}`);
-  console.log(`  $ ${cmd.join(' ')}\n`);
-
+  console.log(chalk.dim(`\n→ scaffolding ${chalk.bold(template)} → ${projectPath}`));
+  console.log(chalk.dim(`  $ ${cmd.join(' ')}\n`));
   const res = spawnSync(cmd[0]!, cmd.slice(1), { cwd: zoneDir, stdio: 'inherit', shell: true });
   if (res.status !== 0) return res.status ?? 1;
-
-  console.log(`\n✔ Created ${name} in zone "${zone}"`);
+  console.log(chalk.green(`\n✔ Created ${chalk.bold(name)} in zone "${zone}" ${chalk.dim(projectPath)}`));
   return 0;
 }
 
@@ -71,7 +70,6 @@ function buildCommand(t: Template, name: string, pm: string, extra: string[], ye
   if (yes) return [...dlx.split(' '), templatePkg(t), name, ...defaultFlags(t)];
   return [...dlx.split(' '), templatePkg(t), name];
 }
-
 function templatePkg(t: Template): string {
   return { next: 'create-next-app@latest', vite: 'create-vite@latest', bun: 'create-vite@latest', turbo: 'create-turbo@latest', t3: 'create-t3-app@latest' }[t];
 }
@@ -89,68 +87,25 @@ function detectPM(args: ParsedArgs): string {
   if (hasCmd('yarn')) return 'yarn';
   return 'npm';
 }
-
 async function pickZone(config: ReturnType<typeof loadConfig>): Promise<string> {
   const names = Object.keys(config.zones).sort();
-  const labels = names.map((n) => `${n}${config.primary === n ? ' *primary' : ''}  ${config.zones[n]![0]}`);
-  const idx = await selectArrow('Select zone:', labels, names.indexOf(config.primary ?? names[0]!));
-  return names[idx]!;
-}
-
-async function pickTemplate(): Promise<string> {
-  const labels = [...TEMPLATES] as string[];
-  const idx = await selectArrow('Select template:', labels, 0);
-  return TEMPLATES[idx]!;
-}
-
-/** Arrow-key TUI selector — falls back to numbered input if not TTY. */
-async function selectArrow(prompt: string, options: string[], initial: number): Promise<number> {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    console.log('');
-    options.forEach((o, i) => console.log(`  ${i + 1}) ${o}`));
-    const ans = await ask(`${prompt} [${initial + 1}]: `);
-    if (!ans) return initial;
-    const n = parseInt(ans, 10);
-    if (!isNaN(n) && n >= 1 && n <= options.length) return n - 1;
-    const byName = options.indexOf(ans);
-    if (byName !== -1) return byName;
-    return initial;
-  }
-  return new Promise((resolve) => {
-    let sel = initial;
-    const render = () => {
-      readline.cursorTo(process.stdout, 0);
-      readline.clearScreenDown(process.stdout);
-      console.log(prompt);
-      options.forEach((o, i) => {
-        if (i === sel) console.log(`\x1b[36m\u276F ${o}\x1b[0m`);
-        else console.log(`  ${o}`);
-      });
-      console.log('\x1b[2m(use ↑/↓, enter)\x1b[0m');
-    };
-    render();
-    const onData = (d: Buffer) => {
-      const s = d.toString();
-      if (s === '\u001b[A') { sel = (sel - 1 + options.length) % options.length; render(); }
-      else if (s === '\u001b[B') { sel = (sel + 1) % options.length; render(); }
-      else if (s === '\r' || s === '\n') { cleanup(); resolve(sel); }
-      else if (s === '\u0003') { cleanup(); process.exit(1); }
-    };
-    const cleanup = () => {
-      process.stdin.removeListener('data', onData);
-      if (process.stdin.isTTY) process.stdin.setRawMode(false);
-      process.stdin.pause();
-      // clear selector lines
-      readline.cursorTo(process.stdout, 0);
-      readline.clearScreenDown(process.stdout);
-    };
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.on('data', onData);
+  const choices = names.map((n) => ({ name: n, message: `${n}${config.primary===n ? chalk.yellow(' *primary'):''}  ${chalk.dim(config.zones[n]![0]!)}` }));
+  const res = await (Enquirer as unknown as { prompt: (q: unknown) => Promise<Record<string,string>> }).prompt({
+    type: 'select', name: 'zone', message: 'Select zone', choices,
+    initial: names.indexOf(config.primary ?? names[0]!),
   });
+  return res.zone;
 }
-
-function ask(q: string): Promise<string> {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((res) => rl.question(q, (a) => { rl.close(); res(a.trim()); }));
+async function pickTemplate(): Promise<string> {
+  const choices = [
+    { name: 'next', message: `${chalk.cyan('next')}  — Next.js (create-next-app)` },
+    { name: 'vite', message: `${chalk.magenta('vite')}  — Vite React-TS` },
+    { name: 'bun', message: `${chalk.yellow('bun')}   — Bun + Vite` },
+    { name: 'turbo', message: `${chalk.blue('turbo')} — Turborepo` },
+    { name: 't3', message: `${chalk.green('t3')}    — T3 Stack (Next + tRPC + Prisma)` },
+  ];
+  const res = await (Enquirer as unknown as { prompt: (q: unknown) => Promise<Record<string,string>> }).prompt({
+    type: 'select', name: 'tpl', message: 'Select template', choices,
+  });
+  return res.tpl;
 }
