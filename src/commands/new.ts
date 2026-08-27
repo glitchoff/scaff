@@ -1,10 +1,14 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, spawnSync as _sp } from 'node:child_process';
 import * as readline from 'node:readline';
 import { loadConfig } from '../core/registry/store.js';
 import type { ParsedArgs } from '../cli/args.js';
 import { flag, opt } from '../cli/args.js';
+
+function hasCmd(c: string): boolean {
+  try { const r = _sp(process.platform === 'win32' ? 'where' : 'which', [c]); return r.status === 0; } catch { return false; }
+}
 
 const TEMPLATES = ['next', 'vite', 'bun', 'turbo', 't3'] as const;
 type Template = (typeof TEMPLATES)[number];
@@ -79,31 +83,71 @@ function defaultFlags(t: Template): string[] {
 function detectPM(args: ParsedArgs): string {
   const pm = opt(args.options, 'pm');
   if (pm) return pm;
-  if (fs.existsSync('bun.lockb')) return 'bun';
-  return 'pnpm';
+  if (fs.existsSync('bun.lockb') && hasCmd('bun')) return 'bun';
+  if (hasCmd('pnpm')) return 'pnpm';
+  if (hasCmd('bun')) return 'bun';
+  if (hasCmd('yarn')) return 'yarn';
+  return 'npm';
 }
 
 async function pickZone(config: ReturnType<typeof loadConfig>): Promise<string> {
   const names = Object.keys(config.zones).sort();
-  console.log('');
-  names.forEach((n, i) => console.log(`  ${i + 1}) ${n}${config.primary === n ? ' *primary' : ''}  ${config.zones[n]![0]}`));
-  const ans = await ask(`Zone [${config.primary ?? names[0]}]: `);
-  if (!ans) return config.primary ?? names[0]!;
-  const idx = parseInt(ans, 10);
-  if (!isNaN(idx) && idx >= 1 && idx <= names.length) return names[idx - 1]!;
-  if (config.zones[ans]) return ans;
-  return config.primary ?? names[0]!;
+  const labels = names.map((n) => `${n}${config.primary === n ? ' *primary' : ''}  ${config.zones[n]![0]}`);
+  const idx = await selectArrow('Select zone:', labels, names.indexOf(config.primary ?? names[0]!));
+  return names[idx]!;
 }
 
 async function pickTemplate(): Promise<string> {
-  console.log('');
-  TEMPLATES.forEach((t, i) => console.log(`  ${i + 1}) ${t}`));
-  const ans = await ask(`Template [next]: `);
-  if (!ans) return 'next';
-  const idx = parseInt(ans, 10);
-  if (!isNaN(idx) && idx >= 1 && idx <= TEMPLATES.length) return TEMPLATES[idx - 1]!;
-  if (TEMPLATES.includes(ans as Template)) return ans;
-  return 'next';
+  const labels = [...TEMPLATES] as string[];
+  const idx = await selectArrow('Select template:', labels, 0);
+  return TEMPLATES[idx]!;
+}
+
+/** Arrow-key TUI selector — falls back to numbered input if not TTY. */
+async function selectArrow(prompt: string, options: string[], initial: number): Promise<number> {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    console.log('');
+    options.forEach((o, i) => console.log(`  ${i + 1}) ${o}`));
+    const ans = await ask(`${prompt} [${initial + 1}]: `);
+    if (!ans) return initial;
+    const n = parseInt(ans, 10);
+    if (!isNaN(n) && n >= 1 && n <= options.length) return n - 1;
+    const byName = options.indexOf(ans);
+    if (byName !== -1) return byName;
+    return initial;
+  }
+  return new Promise((resolve) => {
+    let sel = initial;
+    const render = () => {
+      readline.cursorTo(process.stdout, 0);
+      readline.clearScreenDown(process.stdout);
+      console.log(prompt);
+      options.forEach((o, i) => {
+        if (i === sel) console.log(`\x1b[36m\u276F ${o}\x1b[0m`);
+        else console.log(`  ${o}`);
+      });
+      console.log('\x1b[2m(use ↑/↓, enter)\x1b[0m');
+    };
+    render();
+    const onData = (d: Buffer) => {
+      const s = d.toString();
+      if (s === '\u001b[A') { sel = (sel - 1 + options.length) % options.length; render(); }
+      else if (s === '\u001b[B') { sel = (sel + 1) % options.length; render(); }
+      else if (s === '\r' || s === '\n') { cleanup(); resolve(sel); }
+      else if (s === '\u0003') { cleanup(); process.exit(1); }
+    };
+    const cleanup = () => {
+      process.stdin.removeListener('data', onData);
+      if (process.stdin.isTTY) process.stdin.setRawMode(false);
+      process.stdin.pause();
+      // clear selector lines
+      readline.cursorTo(process.stdout, 0);
+      readline.clearScreenDown(process.stdout);
+    };
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.on('data', onData);
+  });
 }
 
 function ask(q: string): Promise<string> {
