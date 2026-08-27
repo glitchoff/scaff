@@ -1,43 +1,26 @@
 #!/usr/bin/env bash
-# scaff — bash/zsh wrapper that cds into a resolved project.
-#
-# The scaff binary is a subprocess, so it cannot change your shell's working
-# directory. Source this file to define a `scaff` function that intercepts
-# project lookups and cds into the resolved path, delegating everything else
-# to the real binary.
-#
-# All commands are '-' prefixed. A bare token is always a project, so there is
-# no ambiguity and no escape hatch needed.
-#
-#   source ./scaff.sh
-#   scaff my-app            # cds into the primary-zone project (project-first)
-#   scaff work:my-app       # cds into a project in a specific zone
-#   scaff -setup            # runs the setup command
-#   scaff -zone add /path   # anything starting with '-' goes to the binary
-
 scaff() {
   local first="$1"
   shift || true
-
-  # No arguments → show help.
-  if [ -z "$first" ]; then
-    command scaff
-    return $?
-  fi
-
-  # Anything starting with '-' is a command → pass straight to the binary.
+  if [ -z "$first" ]; then command scaff; return $?; fi
+  # handle list/open etc with cd support
   case "$first" in
+    -list|-ls|-find|-f|-open|list|ls)
+      local out
+      out="$(command scaff "$first" "$@" 2>/dev/null)"
+      local ec=$?
+      # if output is a dir, cd
+      local last="$(echo "$out" | tail -n1 | tr -d '\r')"
+      if [ -d "$last" ]; then cd "$last" 2>/dev/null; echo "$out"; return 0; fi
+      echo "$out"; return $ec ;;
     -*) command scaff "$first" "$@"; return $? ;;
   esac
-
-  # A bare token is a project (name or zone:name). Resolve it via -path and cd
-  # into it. If it does not resolve, fall through so the binary prints its
-  # "not found" error.
+  # :name shorthand
   local dir
   dir="$(command scaff -path "$first" 2>/dev/null)"
-  if [ -n "$dir" ] && [ -d "$dir" ]; then
-    cd "$dir" || return 1
-    return 0
-  fi
-  command scaff "$first"
+  if [ -n "$dir" ] && [ -d "$dir" ]; then cd "$dir" || return 1; return 0; fi
+  # bare :name or zone:name also via binary
+  dir="$(command scaff "$first" 2>/dev/null | tail -n1 | tr -d '\r')"
+  if [ -n "$dir" ] && [ -d "$dir" ]; then cd "$dir" || return 1; echo "$dir"; return 0; fi
+  command scaff "$first" "$@"
 }

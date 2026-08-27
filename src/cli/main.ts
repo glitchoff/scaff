@@ -25,9 +25,10 @@ async function main(): Promise<number> {
     return 0;
   }
   if (first === '.') return runZoneAddDot(configPath);
-  // reserved: new/create without -
+  // reserved without -: new/create/list/ls
   if (first === 'new' || first === 'create') return runNew(configPath, parseArgs(argv.slice(1)));
   if (first === '-new' || first === '-create') return runNew(configPath, parseArgs(argv.slice(1)));
+  if (first === 'list' || first === 'ls') return runList(configPath, parseArgs(argv.slice(1)));
 
   if (first.startsWith('-')) return dispatchCommand(first, argv.slice(1));
 
