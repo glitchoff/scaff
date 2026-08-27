@@ -64,6 +64,8 @@ async function main(): Promise<number> {
 function dispatchCommand(command: string, rest: string[]): Promise<number> {
   const args = parseArgs(rest);
   switch (command) {
+    case '-setup':
+      return import('../commands/setup.js').then(m=>m.runSetup(args));
     case '-add':
       return import('../commands/zone.js').then(m=>m.runZoneAddInteractive(configPath, args));
     case '-list':

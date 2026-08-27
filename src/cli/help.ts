@@ -24,6 +24,7 @@ COMMANDS
   -hot [name]               set hot (picker if no name)
   -list, list [query]       interactive list with [hot] label — cds into picked project
   -open [name]              open project (picker if no name, also cds)
+  -setup                    shell integration (auto on first use, manual here)
   -help, -h                 help
   -version, -v              version
 `;
