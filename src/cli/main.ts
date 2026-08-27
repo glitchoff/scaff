@@ -8,6 +8,7 @@ import { runFind } from '../commands/find.js';
 import { runOpen } from '../commands/open.js';
 import { runSetup } from '../commands/setup.js';
 import { runAlias } from '../commands/alias.js';
+import { runNew } from '../commands/new.js';
 
 const configPath = getConfigPath();
 
@@ -51,6 +52,9 @@ function dispatchCommand(command: string, rest: string[]): Promise<number> {
       return runOpen(configPath, args);
     case '-zone':
       return Promise.resolve(runZone(configPath, args));
+    case '-new':
+    case '-create':
+      return runNew(configPath, args);
     default:
       console.error(`scaff: unknown command "${command}".`);
       console.log('');

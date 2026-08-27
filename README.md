@@ -1,129 +1,179 @@
-# scaff
+# scaff — your projects, one word away
 
-A cross-platform developer CLI for project workspace registration, resolution, and launching.
+> Stop `cd`-ing through 6 folders to find that one repo. `scaff` remembers where your code lives.
 
-`scaff` lets you register *zones* (workspace root directories), then resolve and open any project inside them by name — in VS Code, a terminal, or your file manager. No more hunting through nested folders or typing out long absolute paths.
-
-The default zone is **`hot`**: register a workspace root once with `scaff zone add <path>` and it's stored as the `hot` zone. `scaff <project>` then resolves against `hot/` and — with the shell integration installed via `scaff setup` — **cds you straight into the project from your current shell**.
-
-## Features
-
-- **Zones** — register named workspace root directories once, then forget the paths.
-- **Name-based resolution** — open a project by its directory name from anywhere.
-- **Ambiguity handling** — if a name exists in multiple zones, `scaff` reports the conflict instead of guessing.
-- **Multiple launch targets** — VS Code, a terminal, or the platform file manager.
-- **Cross-platform** — Windows, macOS, and Linux.
-- **Zero dependencies beyond `commander`.**
-
-## Installation
-
-Install globally with your preferred package manager:
+`scaff` is a tiny, zero-dependency, cross-platform CLI that lets you register **zones** (workspace roots) and then jump to any project by name — from anywhere.
 
 ```bash
-# pnpm
-pnpm add -g scaff-up
+scaff -zone add work ~/dev --primary
+scaff -zone add oss ~/open-source
 
-# npm
-npm install -g scaff-up
-
-# bun
-bun add -g scaff-up
-
-# yarn
-yarn global add scaff-up
+scaff my-api              # -> ~/dev/my-api  (cds you there with shell integration)
+scaff oss:scaff           # -> ~/open-source/scaff
+scaff -open my-api --with vscode
 ```
 
-You can then use the `scaff` command anywhere.
+No config hunting. No absolute paths. Just names.
 
-### Building from source
+---
+
+## Why scaff?
+
+You have `~/dev`, `~/work/clients/acme`, `~/open-source`, maybe `D:\Projects` — projects scattered everywhere. `scaff` gives you one uniform way to say *take me there*.
+
+- **Zones** — name your workspace roots once, forget the paths forever.
+- **1-word jumps** — `scaff <name>` resolves against your primary zone.
+- **Explicit when you need it** — `scaff <zone>:<name>` hits any zone directly.
+- **Fuzzy finder** — `scaff -find` / `scaff -f api` to interactively pick.
+- **Actually cds you** — shell wrappers mean `scaff <project>` changes *your* shell's directory, not just a subprocess.
+- **Zero dependencies** — just Node 18+. No `commander`, no bloat.
+- **Cross-platform** — Windows, macOS, Linux. PowerShell, bash, zsh.
+
+## Install
+
+```bash
+pnpm add -g scaff-up      # pnpm
+npm i -g scaff-up         # npm
+bun add -g scaff-up       # bun
+yarn global add scaff-up  # yarn
+```
+
+Then `scaff` is available everywhere.
+
+### From source
 
 ```bash
 pnpm install
-pnpm build
+pnpm build        # -> dist/
+pnpm dev -- -help # run from source via tsx
 ```
 
-The `scaff` binary is available via the `bin` field in `package.json`.
+**Requires:** Node.js 18+
 
-### Prerequisites
-
-- Node.js 18+ (for `--with vscode`, the `code` CLI must be in your PATH; otherwise `scaff` falls back to the file manager).
-
-## Usage
-
-### Shell integration (cd into projects)
-
-A CLI subprocess cannot change your shell's working directory, so `scaff` ships
-wrappers (`shell/scaff.ps1` for PowerShell, `shell/scaff.sh` for bash/zsh) that
-make `scaff <project>` actually `cd` you into the project.
+## Quick start
 
 ```bash
-scaff setup            # installs the wrapper into your shell profile
-# restart your shell, or reload your profile, then:
-scaff my-project       # cds into hot/my-project
+# 1. Install shell integration (so `scaff <name>` actually cds you)
+scaff -setup
+# restart your shell, or reload your profile
+
+# 2. Register a zone and make it primary
+scaff -zone add hot ~/projects --primary
+
+# 3. Jump
+scaff my-cool-app              # cds into ~/projects/my-cool-app
+scaff -path my-cool-app        # just prints ~/projects/my-cool-app
+scaff -path hot:my-cool-app    # explicit zone:name form
+
+# 4. Multiple zones? easy.
+scaff -zone add work ~/work
+scaff work:internal-tool       # hits the work zone
 ```
 
-`scaff setup` detects your shell and appends the wrapper to your profile
-(`$PROFILE` on PowerShell, `~/.bashrc` / `~/.zshrc` otherwise). Use
-`scaff setup --shell powershell|bash|zsh` to target a specific shell.
-Alternatively, source the wrapper manually:
-`source shell/scaff.sh` or `. .\shell\scaff.ps1`.
+## Shell integration — the magic `cd`
 
-### Quick start
+A normal CLI can't change your shell's directory (it's a child process). `scaff` ships tiny wrappers that fix that:
+
+- `shell/scaff.ps1` — PowerShell
+- `shell/scaff.sh` — bash / zsh
 
 ```bash
-# Register a zone — the name defaults to "hot"
-scaff zone add /path/to/projects
-
-# cd into a project from the current shell (requires shell integration)
-scaff my-project
-
-# Print the resolved path without cd'ing
-scaff path my-project
-
-# Or open it with an explicit launch target
-scaff open my-project --with vscode
+scaff -setup                  # auto-detects your shell, patches your profile
+scaff -setup --shell zsh      # target a specific shell
+scaff -setup --shell powershell
 ```
 
-### Commands
+It appends a `scaff` function to `$PROFILE` (PowerShell) or `~/.bashrc` / `~/.zshrc`. Afterwards `scaff <name>` really does `cd`.
 
-| Command | Description |
-| --- | --- |
-| `scaff setup` | Install shell integration so `scaff <project>` cds into the project |
-| `scaff zone add [name] <path>` | Register a new zone (name defaults to `hot`) |
-| `scaff zone remove <name>` | Remove a registered zone by name (`rm` alias) |
-| `scaff zone list` | List all registered zones (`ls` alias) |
-| `scaff list` | List every project found across all zones |
-| `scaff path <project>` | Resolve a project (preferring `hot`) and print its absolute path |
-| `scaff open <project>` | Resolve and open a project |
-| `scaff <project>` | Shorthand for `scaff path <project>` (cds when shell integration is active) |
-| `scaff --version` | Print the current version |
-| `scaff --help` | Show help |
+> No `scaff -setup`? `scaff <name>` still works — it just prints the path instead of cd'ing.
 
-### Launch targets
+Manual install if you prefer:
+```bash
+source shell/scaff.sh          # bash/zsh
+. .\shell\scaff.ps1            # PowerShell
+```
 
-`scaff open <project> --with <target>` supports:
+Uninstall: `scaff -setup --force` toggles, or remove the `scaff` function from your profile.
 
-- `vscode` (default) — opens via the `code` CLI; falls back to the file manager if not found.
-- `terminal` — opens a terminal window rooted at the project.
-- `explorer` — opens the platform's file manager.
+## Commands
 
-## How it works
+All commands are `-` prefixed. Bare `scaff <token>` is shorthand for *resolve & print* (and `cd` when the shell wrapper is active).
 
-- **Configuration** lives in a `registry.json` file stored in the platform config directory (`%APPDATA%\scaff\` on Windows, `~/Library/Application Support/scaff/` on macOS, `~/.config/scaff/` on Linux). Set `SCAFF_CONFIG_DIR` to override this.
-- **Zones** map a friendly name to an absolute directory path. The default zone is `hot` — registering with `scaff zone add <path>` stores it under that name.
-- When you resolve a project, `scaff` scans each registered zone's immediate subdirectories for a matching name. A match inside the `hot` zone always wins; otherwise an unambiguous match elsewhere is used, and true conflicts are reported instead of guessed.
-- Zones whose directories no longer exist are silently skipped.
+| Command | What it does |
+|---|---|
+| `scaff <name>` | Resolve `<name>` in primary zone (cds with shell integration) |
+| `scaff <zone>:<name>` | Resolve `<name>` in a specific zone |
+| `scaff -help` / `-h` | Show help |
+| `scaff -version` / `-v` | Print version |
+| `scaff -setup [--shell ps\|bash\|zsh] [--yes] [--force]` | Install shell integration |
+| `scaff -alias <name> [--force]` | Manage a short shell alias for scaff |
+| `scaff -list` / `-ls [--zone <name>] [--all] [--json]` | List all projects grouped by zone |
+| `scaff -find` / `-f [query] [--zone <name>] [--all] [--first] [--json]` | Fuzzy-find & pick a project |
+| `scaff -path <name\|zone:name> [--first] [--json]` | Print resolved path |
+| `scaff -open <name\|zone:name> [--with vscode\|terminal\|explorer] [--first]` | Open project in target |
+
+### Zone management
+
+```bash
+scaff -zone add <name> <dir> [dir...] [--primary]  # register (multiple dirs per zone!)
+scaff -zone rm <name>                               # remove (alias: remove)
+scaff -zone ls                                      # list zones (marks primary)
+scaff -zone primary <name>                          # set primary zone
+scaff -zone primary --clear                         # clear primary
+scaff -zone info <name>                             # show zone's directories
+```
+
+> Zone names can't start with `-` or contain `:`. A zone can map to **multiple directories** — useful for merging `~/dev` + `~/work` under one name.
+
+## Addressing & resolution
+
+```
+<name>        → searches only the primary zone
+<zone>:<name> → searches that specific zone
+
+# if multiple matches inside one zone (e.g. zone has 2 dirs with same project)
+scaff my-app          # prompts you to pick
+scaff my-app --first  # auto-picks first
+scaff -find my        # fuzzy filter + picker
+```
+
+Errors are helpful:
+- No primary set → `run scaff -zone primary <name> first, or use <zone>:<name>`
+- Unknown zone → lists known zones
+- No match → suggests `scaff -find` / `-list`
+
+Missing zone directories are silently skipped. Dot-prefixed projects are hidden unless you pass `--all`.
+
+## Opening projects
+
+```bash
+scaff -open my-app                    # default: vscode (falls back to file manager if `code` not found)
+scaff -open my-app --with terminal    # new terminal rooted at project
+scaff -open my-app --with explorer    # file manager
+scaff -open work:my-app --with vscode --first
+```
+
+## Configuration
+
+- Stored as `registry.json` in your OS config dir:
+  - Windows: `%APPDATA%\scaff\`
+  - macOS: `~/Library/Application Support/scaff/`
+  - Linux: `~/.config/scaff/`
+- Override with `SCAFF_CONFIG_DIR=/custom/path`
+- Shape: `{ zones: Record<string, string[]>, primary: string | null }`
 
 ## Development
 
 ```bash
-pnpm dev          # Run from source via tsx
-pnpm test         # Run the test suite (vitest)
-pnpm test:watch   # Watch mode
-pnpm build        # Build to dist/ (tsup)
-pnpm start        # Run the built output
+pnpm dev          # tsx src/cli/main.ts
+pnpm test         # vitest run
+pnpm test:watch   # watch mode
+pnpm build        # tsup -> dist/
+pnpm start        # node dist/main.js
 ```
+
+Zero runtime dependencies. TypeScript + tsup + vitest.
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE) — do whatever, just don't blame us.

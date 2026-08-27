@@ -26,6 +26,8 @@ COMMANDS
   -find  (-f)  [query]      fuzzy/interactive project finder
   -path <name|zone:name>    print the resolved absolute path
   -open <name|zone:name>    resolve and open a project
+  -new  [name]              scaffold a new project (interactive)
+  -create [name]            alias for -new
   -zone ...                 manage zones
 
 ZONE COMMANDS
