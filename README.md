@@ -111,6 +111,7 @@ All commands are `-` prefixed. Bare `scaff <token>` is shorthand for *resolve & 
 | `scaff -find` / `-f [query] [--zone <name>] [--all] [--first] [--json]` | Fuzzy-find & pick a project |
 | `scaff -path <name\|zone:name> [--first] [--json]` | Print resolved path |
 | `scaff -open <name\|zone:name> [--with vscode\|terminal\|explorer] [--first]` | Open project in target |
+| `scaff -new [name]` / `-create` | Scaffold a new project (interactive: next / vite / bun / turbo / t3) |
 
 ### Zone management
 
@@ -153,14 +154,26 @@ scaff -open my-app --with explorer    # file manager
 scaff -open work:my-app --with vscode --first
 ```
 
+## Scaffolding new projects
+
+```bash
+scaff -new                    # interactive: asks name → zone → template
+scaff -new my-app             # asks zone + template
+scaff -new my-app --template next --zone hot --yes  # no prompts, delegates to create-next-app
+scaff -new my-app --template t3 -- --db sqlite      # passthrough after -- goes to template CLI
+```
+
+Templates: `next` → `create-next-app`, `vite` → `create-vite`, `bun` → `bun create vite`, `turbo` → `create-turbo`, `t3` → `create-t3-app`. Follow-up questions (TypeScript? Tailwind? App Router?) are asked natively by the template CLI via `stdio: inherit` — scaff just handles *where*.
+
 ## Configuration
 
-- Stored as `registry.json` in your OS config dir:
+- Stored as `config.json` (legacy `registry.json` auto-migrated) in your OS config dir:
   - Windows: `%APPDATA%\scaff\`
   - macOS: `~/Library/Application Support/scaff/`
   - Linux: `~/.config/scaff/`
 - Override with `SCAFF_CONFIG_DIR=/custom/path`
-- Shape: `{ zones: Record<string, string[]>, primary: string | null }`
+- Shape: `{ version: 2, zones: Record<string, string[]>, primary: string | null }`
+- Upgrades: old configs auto-migrate on first run (backup to `config.json.bak` / `registry.json.bak`)
 
 ## Development
 
