@@ -65,4 +65,26 @@ function dispatchCommand(command: string, rest: string[]): Promise<number> {
   }
 }
 
-main().then(c=>{process.exitCode=c}).catch((err:unknown)=>{console.error('scaff: unexpected error —',(err as Error).message??err);process.exitCode=1});
+async function maybePromptSetup(): Promise<void> {
+  if (!process.stdout.isTTY || !process.stdin.isTTY) return;
+  const cfg = loadConfig(configPath) as unknown as Record<string,unknown>;
+  if (cfg['_setupPrompted']) return;
+  try {
+    const { detectShell, hasSetupBlock, profilePath } = await import('../core/shells/index.js');
+    const shell = detectShell();
+    const profile = profilePath(shell);
+    if (hasSetupBlock(profile)) { (cfg['_setupPrompted']=true); try{ const {saveConfig}=await import('../core/registry/store.js'); saveConfig(configPath, cfg as never);}catch{} return; }
+    const Enquirer = (await import('enquirer')).default as unknown as { Confirm: new(o:unknown)=>{run():Promise<boolean>} };
+    const confirm = new Enquirer.Confirm({ name:'setup', message:'Run scaff anywhere — add shell integration? [Y/n]', initial:true });
+    const yes = await confirm.run().catch(()=>false);
+    (cfg['_setupPrompted']=true);
+    try{ const {saveConfig}=await import('../core/registry/store.js'); saveConfig(configPath, cfg as never);}catch{}
+    if (yes) {
+      const { installSetup } = await import('../core/shells/index.js');
+      installSetup(shell, profile);
+      console.log(`✔ Shell integration added to ${profile} — restart your shell.`);
+    }
+  } catch {}
+}
+
+main().then(async c=>{ if(c===0) await maybePromptSetup(); process.exitCode=c}).catch((err:unknown)=>{console.error('scaff: unexpected error —',(err as Error).message??err);process.exitCode=1});
