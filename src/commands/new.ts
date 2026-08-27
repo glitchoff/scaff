@@ -59,7 +59,8 @@ export async function runNew(configPath: string, args: ParsedArgs): Promise<numb
   console.log(chalk.dim(`\n→ scaffolding ${chalk.bold(template)} → ${projectPath}`));
   console.log(chalk.dim(`  $ ${cmd.join(' ')}\n`));
   const res = spawnSync(cmd[0]!, cmd.slice(1), { cwd: zoneDir, stdio: 'inherit', shell: true });
-  if (res.status !== 0) return res.status ?? 1;
+  if (res.status !== 0) { console.error(chalk.red('  Scaffolding cancelled or failed')); return res.status ?? 1; }
+  if (!fs.existsSync(projectPath)) { console.error(chalk.red(`  Failed: "${projectPath}" not created (wizard cancelled?)`)); return 1; }
   console.log(chalk.green(`\n✔ Created ${chalk.bold(name)} in zone "${zone}" ${chalk.dim(projectPath)}`));
   return 0;
 }
