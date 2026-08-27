@@ -11,6 +11,7 @@ USAGE
   scaff .                   add current dir as zone (prompts)
   scaff new [name]          scaffold new project (only without -)
   scaff list [query]        interactive list (also -list) — picks and cds
+  scaff config [--run]      configure project launch (.scaff) — wizard, --run executes
 
 COMMANDS
   -add [name] [dir]         add zone (interactive, shows hot switch)

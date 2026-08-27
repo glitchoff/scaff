@@ -29,6 +29,10 @@ async function main(): Promise<number> {
   if (first === 'new' || first === 'create') return runNew(configPath, parseArgs(argv.slice(1)));
   if (first === '-new' || first === '-create') return runNew(configPath, parseArgs(argv.slice(1)));
   if (first === 'list' || first === 'ls') return runList(configPath, parseArgs(argv.slice(1)));
+  if (first === 'config' || first === '-config') {
+    const { runConfig } = await import('../commands/config.js');
+    return runConfig(configPath, parseArgs(argv.slice(1)));
+  }
 
   if (first.startsWith('-')) return dispatchCommand(first, argv.slice(1));
 
@@ -39,9 +43,22 @@ async function main(): Promise<number> {
     if (!cfg.hot) { console.error('scaff: no hot zone set. Use scaff -zone add <name> <dir>'); return 1; }
     token = `${cfg.hot}:${token.slice(1)}`;
   }
-  // bare project open
+  // bare project open - check auto config after resolve but also run via runBare wrapper
   const { runBare } = await import('../commands/path.js');
-  return runBare(configPath, token);
+  const code = await runBare(configPath, token);
+  if(code===0){
+    try{
+      const { resolveToken } = await import('../core/resolve/index.js');
+      const cfg = loadConfig(configPath);
+      const projects = resolveToken(cfg, token);
+      if(projects.length){
+        const { loadProjectConfig, runProjectConfig } = await import('../core/projectConfig/index.js');
+        const pc = loadProjectConfig(projects[0]!.path);
+        if(pc?.auto) await runProjectConfig(projects[0]!.path, pc);
+      }
+    }catch{}
+  }
+  return code;
 }
 
 function dispatchCommand(command: string, rest: string[]): Promise<number> {
