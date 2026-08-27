@@ -22,11 +22,24 @@ export async function runConfig(configPath: string, args: ParsedArgs): Promise<n
 
 async function wizardNew(cwd:string, name:string){
   console.log(chalk.cyan(`\n Configure ${chalk.bold(name)}\n`));
-  const { Confirm } = Enquirer as unknown as {Confirm: new(o:unknown)=>{run():Promise<boolean>}};
-  const wantEditor = await new Confirm({name:'editor', message: chalk.cyan('Open an editor?'), initial:true}).run().catch(()=>true);
-  const wantCommand = await new Confirm({name:'command', message: chalk.cyan('Start a development command?'), initial:true}).run().catch(()=>true);
-  const wantBrowser = await new Confirm({name:'browser', message: chalk.cyan('Open a browser?'), initial:true}).run().catch(()=>true);
-  const wantTerminal = await new Confirm({name:'terminal', message: chalk.cyan('Open project terminal?'), initial:true}).run().catch(()=>true);
+  const ask = async (msg:string, def=true)=>{
+    try{
+      const res = await (Enquirer as unknown as {prompt:(q:unknown)=>Promise<Record<string,boolean>>}).prompt({type:'confirm', name:'v', message: chalk.cyan(msg), initial: def});
+      return res.v;
+    }catch{
+      // fallback to readline
+      const rl = await import('node:readline/promises');
+      const r = rl.createInterface({input: process.stdin, output: process.stderr});
+      const ans = await r.question(`${msg} (Y/n) `);
+      r.close();
+      if(!ans.trim()) return def;
+      return ans.trim().toLowerCase().startsWith('y');
+    }
+  };
+  const wantEditor = await ask('Open an editor?', true);
+  const wantCommand = await ask('Start a development command?', true);
+  const wantBrowser = await ask('Open a browser?', true);
+  const wantTerminal = await ask('Open project terminal?', true);
 
   const det = detect(cwd);
   let editor: string|null = null;
