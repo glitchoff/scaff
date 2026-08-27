@@ -16,37 +16,52 @@ export async function runZone(configPath: string, args: ParsedArgs): Promise<num
     case 'list':
       return zoneLs(configPath);
     case 'primary':
+    case 'hot':
       return zonePrimary(configPath, args);
     case 'info':
       return zoneInfo(configPath, args);
     default:
-      console.error('scaff: unknown -zone subcommand. Use: add | rm | ls | primary | info');
+      console.error('scaff: unknown -zone subcommand. Use: add | rm | ls | hot | info');
       return 1;
   }
 }
 
+export async function runZoneAddDot(configPath: string): Promise<number> {
+  const dir = path.resolve('.');
+  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) { console.error(`scaff: not a directory: ${dir}`); return 1; }
+  const Enquirer = (await import('enquirer')).default as unknown as { Input: new(o:unknown)=>{run():Promise<string>}, Confirm: new(o:unknown)=>{run():Promise<boolean>} };
+  const namePrompt = new Enquirer.Input({ name:'name', message:`zone name for ${dir}:`, validate:(v:string)=>isValidZoneName(v)?true:'invalid name' });
+  const name = await namePrompt.run();
+  const config = loadConfig(configPath);
+  if (config.zones[name]) { console.error(`scaff: zone "${name}" already exists (no overwrite)`); return 1; }
+  config.zones[name]=dir;
+  const confirm = new Enquirer.Confirm({ name:'hot', message:'make hot?', initial:false });
+  if (await confirm.run()) config.hot=name;
+  saveConfig(configPath, config);
+  console.log(`✔ Zone "${name}" added (${dir})${config.hot===name?' [hot]':''}`);
+  return 0;
+}
+
 function zoneAdd(configPath: string, args: ParsedArgs): number {
-  const [name, ...dirs] = args.positionals.slice(1);
-  if (!name || dirs.length === 0) {
-    console.error('scaff: usage: -zone add <name> <dir> [dir...]');
+  const [name, dirArg] = args.positionals.slice(1);
+  if (!name || !dirArg) {
+    console.error('scaff: usage: -zone add <name> <dir>');
     return 1;
   }
   if (!isValidZoneName(name)) {
-    console.error(`scaff: invalid zone name "${name}" (cannot start with '-' or contain ':')`);
+    console.error(`scaff: invalid zone name "${name}"`);
     return 1;
   }
-  const resolved = dirs.map((d) => path.resolve(d));
-  for (const d of resolved) {
-    if (!fs.existsSync(d) || !fs.statSync(d).isDirectory()) {
-      console.error(`scaff: not a directory: ${d}`);
-      return 1;
-    }
+  const resolved = path.resolve(dirArg);
+  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+    console.error(`scaff: not a directory: ${resolved}`);
+    return 1;
   }
   const config = loadConfig(configPath);
+  if (config.zones[name]) { console.error(`scaff: zone "${name}" already exists`); return 1; }
   config.zones[name] = resolved;
-  if (flag(args.options, 'primary')) config.primary = name;
   saveConfig(configPath, config);
-  console.log(`✔ Zone "${name}" registered (${resolved.length} dir${resolved.length === 1 ? '' : 's'}).`);
+  console.log(`✔ Zone "${name}" registered (${resolved}).`);
   return 0;
 }
 
@@ -72,16 +87,12 @@ function zoneLs(configPath: string): number {
   const config = loadConfig(configPath);
   const names = Object.keys(config.zones);
   if (names.length === 0) {
-    console.log('No zones registered. Use `scaff -zone add <name> <dir>` to add one.');
+    console.log('No zones. Use `scaff .` or `scaff -zone add <name> <dir>`.');
     return 0;
   }
   names.sort();
-  const marker = (n: string) => (config.primary === n ? ' (primary)' : '');
   for (const n of names) {
-    console.log(`[${n}]${marker(n)}`);
-    for (const d of config.zones[n]!) {
-      console.log(`  • ${d}`);
-    }
+    console.log(`[${n}]${config.hot === n ? ' [hot]' : ''} -> ${config.zones[n]}`);
   }
   return 0;
 }
@@ -89,23 +100,23 @@ function zoneLs(configPath: string): number {
 function zonePrimary(configPath: string, args: ParsedArgs): number {
   const config = loadConfig(configPath);
   if (flag(args.options, 'clear')) {
-    config.primary = null;
+    config.hot = null;
     saveConfig(configPath, config);
-    console.log('✔ Primary zone cleared.');
+    console.log('✔ Hot zone cleared.');
     return 0;
   }
   const name = args.positionals[1];
   if (!name) {
-    console.error('scaff: usage: -zone primary <name> | -zone primary --clear');
+    console.error('scaff: usage: -zone hot <name> | -zone hot --clear');
     return 1;
   }
   if (!config.zones[name]) {
     console.error(`scaff: zone "${name}" is not registered.`);
     return 1;
   }
-  config.primary = name;
+  config.hot = name;
   saveConfig(configPath, config);
-  console.log(`✔ Primary zone set to "${name}".`);
+  console.log(`✔ Hot zone set to "${name}".`);
   return 0;
 }
 
@@ -115,15 +126,8 @@ function zoneInfo(configPath: string, args: ParsedArgs): number {
     console.error('scaff: usage: -zone info <name>');
     return 1;
   }
-  const config = loadConfig(configPath);
-  const dirs = config.zones[name];
-  if (!dirs) {
-    console.error(`scaff: zone "${name}" is not registered.`);
-    return 1;
-  }
-  console.log(`[${name}]${config.primary === name ? ' (primary)' : ''}`);
-  for (const d of dirs) {
-    console.log(`  • ${d}`);
-  }
+  const d = loadConfig(configPath).zones[name];
+  if (!d) { console.error(`scaff: zone "${name}" not registered.`); return 1; }
+  console.log(`[${name}] -> ${d}`);
   return 0;
 }

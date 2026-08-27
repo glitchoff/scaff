@@ -18,11 +18,11 @@ afterEach(() => {
 
 describe('store', () => {
   it('loads an empty config when no file exists', () => {
-    expect(loadConfig(configPath)).toEqual({ version: 2, primary: null, zones: {} });
+    expect(loadConfig(configPath)).toEqual({ version: 3, hot: null, zones: {} });
   });
 
   it('round-trips a config', () => {
-    const cfg = { version: 2, primary: 'hot', zones: { hot: ['/a', '/b'], work: ['/c'] } };
+    const cfg = { version: 3, hot: 'hot', zones: { hot: '/a', work: '/c' } };
     saveConfig(configPath, cfg);
     expect(loadConfig(configPath)).toEqual(cfg);
   });
@@ -33,12 +33,12 @@ describe('store', () => {
   });
 
   it('drops invalid zone names and empty dirs on load', () => {
-    const bad = { version: 2, primary: 'hot', zones: { '-bad': ['/x'], hot: [] } };
+    const bad = { version: 3, hot: 'hot', zones: { '-bad': '/x', hot: '' } };
     saveConfig(configPath, bad as never);
     const cfg = loadConfig(configPath);
     expect(cfg.zones['-bad']).toBeUndefined();
     expect(cfg.zones['hot']).toBeUndefined();
-    expect(cfg.primary).toBeNull();
+    expect(cfg.hot).toBeNull();
   });
 
   it('validates zone names', () => {

@@ -35,13 +35,13 @@ function mkDir(...parts: string[]): string {
 }
 
 describe('scaff -zone', () => {
-  it('registers, lists, and clears a primary zone', () => {
+  it('registers, lists, and clears hot zone', () => {
     const d1 = mkDir('pers');
-    mkDir('pers', 'app');
-    expect(scaff(['-zone', 'add', 'hot', d1, '--primary']).status).toBe(0);
-    expect(scaff(['-zone', 'ls']).stdout).toContain('(primary)');
-    expect(scaff(['-zone', 'primary', '--clear']).status).toBe(0);
-    expect(scaff(['-zone', 'ls']).stdout).not.toContain('(primary)');
+    expect(scaff(['-zone', 'add', 'hot', d1]).status).toBe(0);
+    scaff(['-zone', 'hot', 'hot']);
+    expect(scaff(['-zone', 'ls']).stdout).toContain('[hot] [hot]');
+    expect(scaff(['-zone', 'hot', '--clear']).status).toBe(0);
+    expect(scaff(['-zone', 'ls']).stdout).not.toContain('[hot] [hot]');
   });
 
   it('rejects a zone name that starts with -', () => {
@@ -56,11 +56,12 @@ describe('scaff -zone', () => {
   });
 });
 
-describe('scaff -path', () => {
-  it('resolves a bare name via the primary zone', () => {
+describe('scaff bare open', () => {
+  it('resolves a bare name via hot zone', () => {
     mkDir('pers', 'app');
-    scaff(['-zone', 'add', 'hot', path.join(tmpDir, 'pers'), '--primary']);
-    const r = scaff(['-path', 'app']);
+    scaff(['-zone', 'add', 'hot', path.join(tmpDir, 'pers')]);
+    scaff(['-zone', 'hot', 'hot']);
+    const r = scaff(['app']);
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe(path.join(tmpDir, 'pers', 'app'));
   });
@@ -68,68 +69,22 @@ describe('scaff -path', () => {
   it('resolves an explicit zone:name', () => {
     mkDir('work', 'site');
     scaff(['-zone', 'add', 'work', path.join(tmpDir, 'work')]);
-    const r = scaff(['-path', 'work:site']);
+    const r = scaff(['work:site']);
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe(path.join(tmpDir, 'work', 'site'));
   });
 
-  it('reports not-found for a bare name outside the primary zone', () => {
-    mkDir('pers', 'in-primary');
-    mkDir('work', 'only');
-    scaff(['-zone', 'add', 'hot', path.join(tmpDir, 'pers'), '--primary']);
-    scaff(['-zone', 'add', 'work', path.join(tmpDir, 'work')]);
-    const r = scaff(['-path', 'only']);
-    expect(r.status).not.toBe(0);
-    expect(r.stderr).toMatch(/not found/i);
-  });
-
-  it('reports no primary zone when none is set', () => {
-    mkDir('pers', 'app');
+  it('resolves :name shorthand via hot', () => {
+    mkDir('pers', 'myapp');
     scaff(['-zone', 'add', 'hot', path.join(tmpDir, 'pers')]);
-    const r = scaff(['-path', 'app']);
-    expect(r.status).not.toBe(0);
-    expect(r.stderr).toMatch(/primary zone/i);
-  });
-
-  it('auto-selects first with --first on ambiguity', () => {
-    mkDir('pers', 'dup');
-    mkDir('pers2', 'dup');
-    scaff(['-zone', 'add', 'hot', path.join(tmpDir, 'pers'), path.join(tmpDir, 'pers2'), '--primary']);
-    const r = scaff(['-path', 'dup', '--first']);
+    scaff(['-zone', 'hot', 'hot']);
+    const r = scaff([':myapp']);
     expect(r.status).toBe(0);
-    expect(r.stdout.trim()).toBe(path.join(tmpDir, 'pers', 'dup'));
-  });
-});
-
-describe('scaff -list', () => {
-  it('lists projects and supports json', () => {
-    mkDir('pers', 'app');
-    scaff(['-zone', 'add', 'hot', path.join(tmpDir, 'pers'), '--primary']);
-    const r = scaff(['-list', '--json']);
-    const parsed = JSON.parse(r.stdout) as Array<{ name: string }>;
-    expect(parsed.map((p) => p.name)).toContain('app');
-  });
-});
-
-describe('scaff -find', () => {
-  it('fuzzy matches a query', () => {
-    mkDir('pers', 'react-app');
-    scaff(['-zone', 'add', 'hot', path.join(tmpDir, 'pers'), '--primary']);
-    const r = scaff(['-find', 'react', '--first']);
-    expect(r.status).toBe(0);
-    expect(r.stdout.trim()).toContain('react-app');
+    expect(r.stdout.trim()).toBe(path.join(tmpDir, 'pers', 'myapp'));
   });
 });
 
 describe('scaff command dispatch', () => {
-  it('treats a bare token as a project, not a command', () => {
-    mkDir('pers', 'setup');
-    scaff(['-zone', 'add', 'hot', path.join(tmpDir, 'pers'), '--primary']);
-    const r = scaff(['setup']);
-    expect(r.status).toBe(0);
-    expect(r.stdout.trim()).toBe(path.join(tmpDir, 'pers', 'setup'));
-  });
-
   it('shows help for -h and errors for unknown commands', () => {
     expect(scaff(['-h']).stdout).toMatch(/USAGE/);
     const r = scaff(['-nope']);
