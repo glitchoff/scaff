@@ -60,9 +60,10 @@ scaff my-cool-app           # hot zone
 scaff :my-cool-app          # same, shorthand
 scaff work:internal-tool    # explicit zone
 
-# 3. Interactive list (hot label)
-scaff -list                 # picker, [hot] marked
-scaff -list api             # filter by query
+# 3. Interactive list (hot label) — cds into picked
+scaff -list                 # picker, [hot] marked, cds
+scaff list api              # same without -, filter + cds
+scaff -add                  # interactive add zone
 ```
 
 ## Shell integration — the magic `cd`
@@ -82,8 +83,10 @@ Auto-setup on first use. Manual: `source shell/scaff.sh` or `. .\shell\scaff.ps1
 | `scaff <zone>:<name>` | Resolve in specific zone |
 | `scaff .` | Add current dir as zone (interactive) |
 | `scaff new [name]` | Scaffold new project (only command **without** `-`, interactive) |
-| `scaff -list [query]` | Interactive list with `[hot]` label |
-| `scaff -open [name]` | Open project (prompts if no name) |
+| `scaff list [query]` / `-list` | Interactive list with `[hot]` label — **cds** into picked project |
+| `scaff -open [name]` | Open project (prompts if no name, also cds) |
+| `scaff -add [name] [dir]` | Add zone (interactive, shows hot switch) |
+| `scaff -hot [name]` | Set hot (picker if no name) |
 | `scaff -help` / `-h` | Show help |
 | `scaff -version` / `-v` | Print version |
 

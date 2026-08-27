@@ -10,18 +10,19 @@ USAGE
   scaff :<name>             shorthand for hot:<name>
   scaff .                   add current dir as zone (prompts)
   scaff new [name]          scaffold new project (only without -)
+  scaff list [query]        interactive list (also -list) — picks and cds
 
 COMMANDS
-  -add [name] [dir]         add zone (interactive, asks folder+name, shows hot switch)
-  -zone add <name> <dir>    add zone (single dir)
+  -add [name] [dir]         add zone (interactive, shows hot switch)
+  -zone add <name> <dir>    add zone (single dir, first auto hot)
   -zone rm <name>           remove zone
   -zone ls                  list zones (★ [hot])
   -zone hot <name>          set hot zone
   -zone hot --clear         clear hot zone
   -zone info <name>         show zone dir
-  -hot [name]               set hot (interactive picker if no name)
-  -list [query]             interactive list with [hot] label
-  -open [name]              open project (picker if no name)
+  -hot [name]               set hot (picker if no name)
+  -list, list [query]       interactive list with [hot] label — cds into picked project
+  -open [name]              open project (picker if no name, also cds)
   -help, -h                 help
   -version, -v              version
 `;
