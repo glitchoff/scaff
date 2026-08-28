@@ -68,7 +68,8 @@ export async function runProjectConfig(dir:string, cfg:ProjectConfig){
       } else spawn(cfg.command,{cwd:dir, shell:true, stdio:'inherit'});
     }catch{}
   } else if(cfg.command && cfg.terminal.mode==='none'){
-    console.log(chalk.dim(` command: ${cfg.command}`));
+    console.log(chalk.dim(`→ Running ${cfg.command} (current terminal)`));
+    try{ spawn(cfg.command,{cwd:dir, shell:true, stdio:'inherit'}); }catch{}
   }
   if(cfg.browser.url){
     if(cfg.browser.wait){
