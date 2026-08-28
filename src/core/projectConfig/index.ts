@@ -66,7 +66,7 @@ export async function runProjectConfig(dir:string, cfg:ProjectConfig, opts: { em
       console.error(`> Running ${cfg.command}`);
       try{
         const { execSync } = await import('node:child_process');
-        execSync(cfg.command, { cwd: dir, stdio: 'inherit', shell: true });
+        execSync(cfg.command, { cwd: dir, stdio: 'inherit', shell: true as unknown as string });
       }catch(e: unknown){
         const s=(e as {status?:number}).status;
         if(s) log(`Command exited with code ${s}`);

@@ -66,7 +66,7 @@ export async function runUpdate(checkOnly: boolean): Promise<number> {
     const cmdStr = pm === 'pnpm' ? 'pnpm add -g scaff-up@latest' : pm === 'bun' ? 'bun add -g scaff-up' : 'npm i -g scaff-up@latest';
     console.log(`→ ${cmdStr}`);
     try {
-      execSync(cmdStr, { stdio: 'inherit', shell: true });
+      execSync(cmdStr, { stdio: 'inherit', shell: true as unknown as string });
     } catch (e) {
       const s = (e as { status?: number }).status;
       console.error(`scaff: update failed${s ? ` (exit ${s})` : ''}`);
