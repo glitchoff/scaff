@@ -7,9 +7,10 @@ function scaff {
     $first = [string]$a[0]
     if ($first -in @('.','-list','-ls','-find','-f','-open','-add','-hot','-zone','-config','-setup','-update','-help','-version','-h','-v')) { & $shim @a; return }
     if ($first -in @('config','new','list','ls','create','help','version')) { & $shim @a; return }
-    # Capture output but suppress NativeCommandError wrapping - use cmd /c to avoid PowerShell error stream
-    $out = & $shim @a 2>&1 | Out-String -Stream
-    $ec = $LASTEXITCODE
+    # Capture output without NativeCommandError wrapping - coerce ErrorRecords to strings
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference='SilentlyContinue'
+    $out = & $shim @a 2>&1 | ForEach-Object { "$_" }
+    $ec = $LASTEXITCODE; $ErrorActionPreference=$prevEAP
     # Strip ANSI codes for path detection
     $clean = $out | ForEach-Object { $_ -replace "`e\[[0-9;]*m","" }
     if ($ec -eq 0) {
