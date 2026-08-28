@@ -25,6 +25,7 @@ COMMANDS
   -list, list [query]       interactive list with [hot] label — cds into picked project
   -open [name]              open project (picker if no name, also cds)
   -setup                    shell integration (auto on first use, manual here)
+  -update [--check]         update to latest + migrate + setup shell
   -help, -h                 help
   -version, -v              version
 `;

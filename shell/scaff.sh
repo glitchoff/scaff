@@ -4,7 +4,7 @@ scaff() {
   shift || true
   if [ -z "$first" ]; then command scaff; return $?; fi
   case "$first" in
-    .|-list|-ls|-find|-f|-open|-add|-hot|-zone|-config|-setup|-help|-version|-h|-v) command scaff "$first" "$@"; return $? ;;
+    .|-list|-ls|-find|-f|-open|-add|-hot|-zone|-config|-setup|-update|-help|-version|-h|-v) command scaff "$first" "$@"; return $? ;;
   esac
   case "$first" in
     config|new|list|ls|create|help|version)

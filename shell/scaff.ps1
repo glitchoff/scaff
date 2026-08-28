@@ -6,7 +6,7 @@ function scaff {
     if ($a.Count -eq 0) { & $shim; return }
     $first = [string]$a[0]
     # Interactive / non-cd commands: passthrough directly so TTY prompts work (fixes ERR_USE_AFTER_CLOSE)
-    if ($first -in @('.','-list','-ls','-find','-f','-open','-add','-hot','-zone','-config','-setup','-help','-version','-h','-v')) { & $shim @a; return }
+    if ($first -in @('.','-list','-ls','-find','-f','-open','-add','-hot','-zone','-config','-setup','-update','-help','-version','-h','-v')) { & $shim @a; return }
     if ($first -in @('config','new','list','ls','create','help','version')) {
         # config/new/list need TTY - passthrough without capture to avoid blank
         & $shim @a; $ec=$LASTEXITCODE; return

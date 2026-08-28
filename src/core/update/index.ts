@@ -59,15 +59,28 @@ export async function runUpdate(checkOnly: boolean): Promise<number> {
   const current = version();
   const latest = await fetchLatest();
   if (!latest) { console.error('scaff: could not check for updates'); return 1; }
-  if (!isNewer(latest, current)) { console.log(`scaff is up to date (${current})`); return 0; }
-  console.log(`scaff update available ${current} → ${latest}`);
-  if (checkOnly) return 0;
-
-  // Run migrations pre-update (loadConfig already migrates)
-  const pm = commandExists('pnpm') ? 'pnpm' : commandExists('bun') ? 'bun' : 'npm';
-  const cmd = pm === 'pnpm' ? ['pnpm','add','-g','scaff-up@latest'] : pm === 'bun' ? ['bun','add','-g','scaff-up'] : ['npm','i','-g','scaff-up@latest'];
-  console.log(`→ ${cmd.join(' ')}`);
-  const r = spawnSync(cmd[0]!, cmd.slice(1), { stdio: 'inherit', shell: true });
-  if (r.status === 0) { writeCache(latest); console.log(`✔ Updated to ${latest}. Run scaff -version to confirm.`); }
-  return r.status ?? 1;
+  if (!isNewer(latest, current)) { console.log(`scaff is up to date (${current})`); } else {
+    console.log(`scaff update available ${current} → ${latest}`);
+    if (checkOnly) return 0;
+    const pm = commandExists('pnpm') ? 'pnpm' : commandExists('bun') ? 'bun' : 'npm';
+    const cmd = pm === 'pnpm' ? ['pnpm','add','-g','scaff-up@latest'] : pm === 'bun' ? ['bun','add','-g','scaff-up'] : ['npm','i','-g','scaff-up@latest'];
+    console.log(`→ ${cmd.join(' ')}`);
+    const r = spawnSync(cmd[0]!, cmd.slice(1), { stdio: 'inherit', shell: true });
+    if (r.status !== 0) return r.status ?? 1;
+    writeCache(latest); console.log(`✔ Updated to ${latest}.`);
+  }
+  // Always run migrate/setup after update (or if already up to date)
+  try {
+    const { loadConfig } = await import('../registry/store.js');
+    const { getConfigPath } = await import('../../config.js');
+    loadConfig(getConfigPath()); // triggers migration
+    console.log('✔ Config migrated');
+  } catch {}
+  try {
+    const { detectShell, profilePath, installSetup } = await import('../shells/index.js');
+    const shell = detectShell(); const profile = profilePath(shell);
+    installSetup(shell, profile);
+    console.log(`✔ Shell integration installed for ${shell} (${profile}) - restart shell`);
+  } catch (e) { console.error(`scaff: setup failed ${(e as Error).message}`); }
+  return 0;
 }

@@ -1,5 +1,5 @@
 import { getConfigPath } from '../config.js';
-import { parseArgs } from './args.js';
+import { parseArgs, flag } from './args.js';
 import { HELP, version } from './help.js';
 import { runZone } from '../commands/zone.js';
 import { runList } from '../commands/list.js';
@@ -82,6 +82,8 @@ function dispatchCommand(command: string, rest: string[]): Promise<number> {
       { const { runAlias } = require('../commands/alias.js'); return runAlias(args); }
     case '-hot':
       return import('../commands/zone.js').then(m=>m.runZoneHotSet(configPath, args));
+    case '-update':
+      return import('../core/update/index.js').then(m=>m.runUpdate(flag(args.options,'check')));
     default:
       console.error(`scaff: unknown command "${command}".`);
       console.log(HELP);
