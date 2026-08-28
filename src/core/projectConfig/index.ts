@@ -51,13 +51,14 @@ async function pollUrl(url:string, timeout=45000){
 }
 
 export async function runProjectConfig(dir:string, cfg:ProjectConfig){
-  console.log(chalk.dim(`→ ${path.basename(dir)}`));
+  // Use plain ASCII to avoid encoding garble in PowerShell 5.1
+  console.log(`> ${path.basename(dir)}`);
   if(cfg.editor){
-    console.log(chalk.green(`✔ Opening editor ${cfg.editor}`));
-    try{ const cp=spawn(cfg.editor,[dir],{detached:true, stdio:'ignore'}); cp.on('error',()=>console.log(chalk.yellow(` editor "${cfg.editor}" not found in PATH`))); cp.unref(); }catch{}
+    console.log(`[ok] Opening editor ${cfg.editor}`);
+    try{ const cp=spawn(cfg.editor,[dir],{detached:true, stdio:'ignore'}); cp.on('error',()=>console.log(` editor "${cfg.editor}" not found in PATH`)); cp.unref(); }catch{}
   }
   if(cfg.command && cfg.terminal.mode!=='none'){
-    console.log(chalk.green(`✔ Starting ${cfg.command} in ${cfg.terminal.mode}`));
+    console.log(`[ok] Starting ${cfg.command} in ${cfg.terminal.mode}`);
     try{
       if(cfg.terminal.mode==='window' || cfg.terminal.mode==='tab'){
         if(process.platform==='win32'){
@@ -68,16 +69,16 @@ export async function runProjectConfig(dir:string, cfg:ProjectConfig){
       } else spawn(cfg.command,{cwd:dir, shell:true, stdio:'inherit'});
     }catch{}
   } else if(cfg.command && cfg.terminal.mode==='none'){
-    console.log(chalk.dim(`→ Running ${cfg.command} (current terminal)`));
+    console.log(`> Running ${cfg.command} (current terminal)`);
     try{ spawn(cfg.command,{cwd:dir, shell:true, stdio:'inherit'}); }catch{}
   }
   if(cfg.browser.url){
     if(cfg.browser.wait){
-      console.log(chalk.yellow(`◌ Waiting for ${cfg.browser.url}...`));
+      console.log(`... Waiting for ${cfg.browser.url}...`);
       const ok = await pollUrl(cfg.browser.url);
-      if(ok) console.log(chalk.green('✔ Server ready'));
+      if(ok) console.log(`[ok] Server ready`);
       else {
-        console.log(chalk.yellow('⚠ Server didn\'t become available in time.'));
+        console.log(`[!] Server didn't become available in time.`);
         try{
           const { confirm } = await import('@clack/prompts');
           const yes = await confirm({ message:'Open browser anyway?', initialValue:true }) as boolean|symbol;
@@ -85,7 +86,7 @@ export async function runProjectConfig(dir:string, cfg:ProjectConfig){
         }catch{}
       }
     }
-    console.log(chalk.green(`✔ Opening browser ${cfg.browser.url}`));
+    console.log(`[ok] Opening browser ${cfg.browser.url}`);
     try{
       const url=cfg.browser.url;
       if(process.platform==='win32') spawn('cmd',['/c','start','',url],{detached:true, stdio:'ignore'}).unref();
