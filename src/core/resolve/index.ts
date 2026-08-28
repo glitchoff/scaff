@@ -31,10 +31,12 @@ export function resolveToken(config: Config, token: string): Project[] {
 function resolveBare(config: Config, addr: Address): Project[] {
   if (!config.hot || !config.zones[config.hot]) {
     throw new ResolveError(
-      'no hot zone set — run `scaff -zone hot <name>` first, or use `scaff <zone>:<name>`.',
+      'no hot zone set — use `scaff <zone>:<name>` or set one with `scaff -zone hot <name>`.',
     );
   }
-  return searchDirs(config.hot, config.zones[config.hot], addr.name);
+  const hits = searchDirs(config.hot, config.zones[config.hot], addr.name);
+  if (hits.length) return hits;
+  throw new ResolveError(`project "${addr.name}" not found in hot zone "${config.hot}". Try \`scaff -find ${addr.name}\` or \`scaff <zone>:${addr.name}\`.`);
 }
 
 function resolveInZone(config: Config, addr: Address): Project[] {

@@ -107,8 +107,26 @@ async function wizardNew(cwd:string, name:string){
       if(add===true){ fs.appendFileSync(gi, '\n.scaff\n'); p.log.info('Added .scaff to .gitignore'); }
     }
   }catch{}
-  p.outro(`Run automatically with: scaff ${name}`);
+  const hint = await getRunHint(cwd, name);
+  p.outro(`Run with: ${hint}`);
   return 0;
+}
+
+async function getRunHint(cwd:string, name:string): Promise<string> {
+  try {
+    const { loadConfig } = await import('../core/registry/store.js');
+    const { getConfigPath } = await import('../config.js');
+    const cfg = loadConfig(getConfigPath());
+    for(const [zone, dir] of Object.entries(cfg.zones) as [string,string][]){
+      if(path.resolve(dir)===path.resolve(path.dirname(cwd)) || cwd.startsWith(path.resolve(dir)+path.sep)) {
+        if(cfg.hot===zone) return `scaff ${name}`;
+        return `scaff ${zone}:${name}`;
+      }
+    }
+    // fallback: if hot contains this project
+    if(cfg.hot) return `scaff ${cfg.hot}:${name}`;
+  } catch {}
+  return `scaff ${name}`;
 }
 
 async function wizardExisting(cwd:string, name:string, cfg:ProjectConfig){
