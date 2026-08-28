@@ -9,8 +9,9 @@ function scaff {
     if ($first -in @('config','new','list','ls','create','help','version')) { & $shim @a; return }
     # Capture output without NativeCommandError wrapping - coerce ErrorRecords to strings
     $prevEAP = $ErrorActionPreference; $ErrorActionPreference='SilentlyContinue'
-    $out = & $shim @a 2>&1 | ForEach-Object { "$_" }
+    $out = & $shim @a 2>&1 | ForEach-Object { "$_" } | Out-String -Stream
     $ec = $LASTEXITCODE; $ErrorActionPreference=$prevEAP
+    if($null -eq $out){ $out=@() } elseif($out -is [string]){ $out=@($out) }
     # Strip ANSI codes for path detection
     $clean = $out | ForEach-Object { $_ -replace "`e\[[0-9;]*m","" }
     if ($ec -eq 0) {
