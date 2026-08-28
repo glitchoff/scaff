@@ -1,3 +1,4 @@
+/** CLI entry: routes argv to commands and handles bare project jumps. */
 async function main(): Promise<number> {
   const argv = process.argv.slice(2);
   const [first] = argv;
@@ -71,6 +72,7 @@ async function main(): Promise<number> {
   return code;
 }
 
+/** Dispatches dashed commands (-zone, -update, etc.) to their handlers. */
 async function dispatchCommand(command: string, rest: string[], configPath: string): Promise<number> {
   const { parseArgs, flag } = await import('./args.js');
   const args = parseArgs(rest);
@@ -113,6 +115,7 @@ async function dispatchCommand(command: string, rest: string[], configPath: stri
   }
 }
 
+/** One-time TTY prompt to install shell integration. */
 async function maybePromptSetup(configPath: string): Promise<void> {
   if (!process.stdout.isTTY || !process.stdin.isTTY) return;
   const { loadConfig } = await import('../core/registry/store.js');
