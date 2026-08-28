@@ -54,7 +54,7 @@ export async function runProjectConfig(dir:string, cfg:ProjectConfig){
   console.log(chalk.dim(`→ ${path.basename(dir)}`));
   if(cfg.editor){
     console.log(chalk.green(`✔ Opening editor ${cfg.editor}`));
-    try{ spawn(cfg.editor,[dir],{detached:true, stdio:'ignore'}).unref(); }catch{}
+    try{ const cp=spawn(cfg.editor,[dir],{detached:true, stdio:'ignore'}); cp.on('error',()=>console.log(chalk.yellow(` editor "${cfg.editor}" not found in PATH`))); cp.unref(); }catch{}
   }
   if(cfg.command && cfg.terminal.mode!=='none'){
     console.log(chalk.green(`✔ Starting ${cfg.command} in ${cfg.terminal.mode}`));
@@ -62,8 +62,8 @@ export async function runProjectConfig(dir:string, cfg:ProjectConfig){
       if(cfg.terminal.mode==='window' || cfg.terminal.mode==='tab'){
         if(process.platform==='win32'){
           const wtOk = spawnSync('where',['wt']).status===0;
-          if(wtOk) spawn('wt',['new-tab','-d',dir,'powershell','-NoExit','-Command',cfg.command],{detached:true, stdio:'ignore'}).unref();
-          else spawn('cmd',['/c','start','', 'powershell','-NoExit','-Command',`cd /d "${dir}" && ${cfg.command}`],{detached:true, stdio:'ignore'}).unref();
+          if(wtOk){ const cp=spawn('wt',['new-tab','-d',dir,'powershell','-NoExit','-Command',cfg.command],{detached:true, stdio:'ignore'}); cp.on('error',()=>{}); cp.unref(); }
+          else { const cp=spawn('cmd',['/c','start','', 'powershell','-NoExit','-Command',`cd /d "${dir}" && ${cfg.command}`],{detached:true, stdio:'ignore'}); cp.on('error',()=>{}); cp.unref(); }
         } else spawn('bash',['-c',`cd "${dir}" && ${cfg.command}`],{detached:true, stdio:'ignore'}).unref();
       } else spawn(cfg.command,{cwd:dir, shell:true, stdio:'inherit'});
     }catch{}
@@ -78,10 +78,9 @@ export async function runProjectConfig(dir:string, cfg:ProjectConfig){
       else {
         console.log(chalk.yellow('⚠ Server didn\'t become available in time.'));
         try{
-          const Enquirer = (await import('enquirer')).default as unknown as {Confirm: new(o:unknown)=>{run():Promise<boolean>}};
-          const c=new Enquirer.Confirm({name:'open', message:'Open browser anyway? (Y/n)', initial:true});
-          const yes=await c.run().catch(()=>true);
-          if(!yes) return;
+          const { confirm } = await import('@clack/prompts');
+          const yes = await confirm({ message:'Open browser anyway?', initialValue:true }) as boolean|symbol;
+          if(yes!==true) return;
         }catch{}
       }
     }
