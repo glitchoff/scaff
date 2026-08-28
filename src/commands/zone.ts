@@ -30,19 +30,22 @@ export async function runZone(configPath: string, args: ParsedArgs): Promise<num
 export async function runZoneAddDot(configPath: string): Promise<number> {
   const dir = path.resolve('.');
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) { console.error(`scaff: not a directory: ${dir}`); return 1; }
-  const Enquirer = (await import('enquirer')).default as unknown as { Input: new(o:unknown)=>{run():Promise<string>}, Confirm: new(o:unknown)=>{run():Promise<boolean>} };
-  const namePrompt = new Enquirer.Input({ name:'name', message:`zone name for ${dir}:`, validate:(v:string)=>isValidZoneName(v)?true:'invalid name' });
-  const name = await namePrompt.run();
+  if (!process.stdin.isTTY || !process.stdout.isTTY) { console.error('scaff: run `scaff .` in an interactive terminal'); return 1; }
+  const { text, confirm } = await import('@clack/prompts');
+  const name = await text({ message: `zone name for ${dir}:`, validate(v){ if(!isValidZoneName(v)) return 'invalid name (no - or : or .)'; } }) as string|symbol;
+  if (typeof name === 'symbol') return 1;
+  const trimmed = (name as string).trim();
+  if (!trimmed) return 1;
   const config = loadConfig(configPath);
-  if (config.zones[name]) { console.error(`scaff: zone "${name}" already exists (no overwrite)`); return 1; }
-  config.zones[name]=dir;
-  if (!config.hot) config.hot=name;
+  if (config.zones[trimmed]) { console.error(`scaff: zone "${trimmed}" already exists (no overwrite)`); return 1; }
+  config.zones[trimmed]=dir;
+  if (!config.hot) config.hot=trimmed;
   else {
-    const confirm = new Enquirer.Confirm({ name:'hot', message:'make hot?', initial:false });
-    if (await confirm.run()) config.hot=name;
+    const makeHot = await confirm({ message:'make hot?', initialValue:false }) as boolean|symbol;
+    if (makeHot === true) config.hot=trimmed;
   }
   saveConfig(configPath, config);
-  console.log(`✔ Zone "${name}" added (${dir})${config.hot===name?' [hot]':''}`);
+  console.log(`✔ Zone "${trimmed}" added (${dir})${config.hot===trimmed?' [hot]':''}`);
   return 0;
 }
 

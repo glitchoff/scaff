@@ -73,7 +73,7 @@ function dispatchCommand(command: string, rest: string[]): Promise<number> {
       return runList(configPath, args);
     case '-find':
     case '-f':
-      return runList(configPath, args);
+      return import('../commands/find.js').then(m=>m.runFind(configPath, args));
     case '-open':
       return runOpen(configPath, args);
     case '-zone':

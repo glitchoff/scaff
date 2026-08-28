@@ -5,11 +5,11 @@ function scaff {
     $a = @($args)
     if ($a.Count -eq 0) { & $shim; return }
     $first = [string]$a[0]
-    if ($first -in @('-list','-ls','-find','-f','-open','-add','-hot','-zone','-config','-setup','-help','-version','-h','-v')) { & $shim @a; return }
+    # Interactive / non-cd commands: passthrough directly so TTY prompts work (fixes ERR_USE_AFTER_CLOSE)
+    if ($first -in @('.','-list','-ls','-find','-f','-open','-add','-hot','-zone','-config','-setup','-help','-version','-h','-v')) { & $shim @a; return }
     if ($first -in @('config','new','list','ls','create','help','version')) {
-        $out = & $shim @a 2>$null; $ec=$LASTEXITCODE
-        if ($ec -eq 0) { $last=($out | Select-Object -Last 1); if($last){ $t=$last.ToString().Trim(); if($t -and (Test-Path $t -PathType Container)){ Set-Location $t } } }
-        $out | Write-Output; return
+        # config/new/list need TTY - passthrough without capture to avoid blank
+        & $shim @a; $ec=$LASTEXITCODE; return
     }
     $out = & $shim @a 2>&1
     $ec = $LASTEXITCODE
