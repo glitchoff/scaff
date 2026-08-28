@@ -17,11 +17,13 @@ scaff() {
     if [ -n "$last" ] && [ -d "$last" ]; then
       cd "$last" 2>/dev/null
       local run="$(echo "$out" | grep '__SCAFF_RUN__' | tail -n1 | sed 's/.*__SCAFF_RUN__//')"
-      if [ -n "$run" ]; then echo "> $run" >&2; eval "$run"; return $?
+      if [ -n "$run" ]; then
+        echo "$out" | grep -v '__SCAFF_RUN__' | grep -v "^$last$" >&2
+        echo "> $run" >&2; eval "$run"; return $?
       fi
       return 0
     fi
   fi
-  echo "$out" | grep -v '__SCAFF_RUN__'
+  echo "$out" | grep -v '__SCAFF_RUN__' | grep -v "^$last$"
   return $ec
 }

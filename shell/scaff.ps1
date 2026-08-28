@@ -28,9 +28,13 @@ function scaff {
                         $run = $clean | Where-Object { $_ -match "__SCAFF_RUN__" } | Select-Object -Last 1
                         if($run){
                             $cmd = ($run -replace ".*__SCAFF_RUN__","").Trim()
-                            $out | Where-Object { $_ -notmatch "__SCAFF_RUN__" -and $_ -notmatch "^[A-Za-z]:\\" } | ForEach-Object { Write-Host $_ }
+                            # show banner + [ok] logs, hide only marker and the path line itself
+                            $pathLine = $t
+                            $out | Where-Object { $_ -notmatch "__SCAFF_RUN__" -and $_.Trim() -ne $pathLine } | ForEach-Object { Write-Host $_ }
                             if($cmd){ Write-Host "> $cmd" -ForegroundColor DarkGray; Invoke-Expression $cmd }
+                            return
                         }
+                        # no config - silent cd
                         return
                     }
                 } catch {}
