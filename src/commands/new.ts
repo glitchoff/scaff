@@ -5,6 +5,7 @@ import { loadConfig } from '../core/registry/store.js';
 import type { ParsedArgs } from '../cli/args.js';
 import { flag, opt } from '../cli/args.js';
 import * as p from '@clack/prompts';
+import chalk from 'chalk';
 import { version } from '../cli/help.js';
 
 function hasCmd(c: string): boolean {
@@ -24,7 +25,7 @@ const BANNER = `
 `;
 
 export async function runNew(configPath: string, args: ParsedArgs): Promise<number> {
-  p.intro(BANNER);
+  p.intro(chalk.cyan(BANNER));
   const config = loadConfig(configPath);
   const zones = Object.keys(config.zones);
   if (zones.length === 0) {

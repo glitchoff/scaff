@@ -15,8 +15,9 @@ export async function resolveOne(
     if (addr.length === 2) {
       throw new ResolveError(`no project "${addr[1]}" in zone "${addr[0]}".`);
     }
+    const hot = config.hot ? ` in hot zone "${config.hot}"` : '';
     throw new ResolveError(
-      `project "${token}" not found in the primary zone. Try \`scaff -find\`, \`scaff -list\`, or \`scaff <zone>:<token>\`.`,
+      `project "${token}" not found${hot}. Try \`scaff -find\`, \`scaff -list\`, or \`scaff <zone>:<token>\`.`,
     );
   }
   return pickProject(matches, token, { first });
