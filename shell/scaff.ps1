@@ -25,16 +25,14 @@ function scaff {
                 try{
                     Set-Location -LiteralPath $t -ErrorAction SilentlyContinue
                     if((Get-Location).Path -eq $t -or (Test-Path -LiteralPath $t)){
-                        $run = $clean | Where-Object { $_ -match "__SCAFF_RUN__" } | Select-Object -Last 1
+                        $run = @($clean | Where-Object { $_ -like "*__SCAFF_RUN__*" }) | Select-Object -Last 1
                         if($run){
                             $cmd = ($run -replace ".*__SCAFF_RUN__","").Trim()
-                            # show banner + [ok] logs, hide only marker and the path line itself
                             $pathLine = $t
-                            $out | Where-Object { $_ -notmatch "__SCAFF_RUN__" -and $_.Trim() -ne $pathLine } | ForEach-Object { Write-Host $_ }
+                            @($out | Where-Object { $_ -notlike "*__SCAFF_RUN__*" -and $_.Trim() -ne $pathLine }) | ForEach-Object { Write-Host $_ }
                             if($cmd){ Write-Host "> $cmd" -ForegroundColor DarkGray; Invoke-Expression $cmd }
                             return
                         }
-                        # no config - silent cd
                         return
                     }
                 } catch {}
