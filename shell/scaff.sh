@@ -10,21 +10,34 @@ scaff() {
     config|new|list|ls|create|help|version)
       command scaff "$first" "$@"; return $? ;;
   esac
-  local out; out="$(command scaff "$first" "$@" 2>&1)"; local ec=$?
-  if [ $ec -eq 0 ]; then
-    local last="$(echo "$out" | tr -d '\r' | tac 2>/dev/null | while IFS= read -r l; do l="$(echo "$l" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//;s/^'\''//;s/'\''$//')"; [ -d "$l" ] && echo "$l" && break; done)"
-    if [ -z "$last" ]; then last="$(echo "$out" | tail -n1 | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"; fi
+
+  local out ec last run
+  out="$(command scaff "$first" "$@" 2>&1)"; ec=$?
+
+  if [ "$ec" -eq 0 ]; then
+    # find last line that is an existing directory (the resolved path)
+    last="$(printf '%s\n' "$out" | tr -d '\r' | tac 2>/dev/null | while IFS= read -r l; do
+      l="$(printf '%s\n' "$l" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//;s/^'\''//;s/'\''$//')"
+      [ -d "$l" ] && printf '%s\n' "$l" && break
+    done)"
+    if [ -z "$last" ]; then
+      last="$(printf '%s\n' "$out" | tail -n1 | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    fi
+
     if [ -n "$last" ] && [ -d "$last" ]; then
       cd "$last" 2>/dev/null
-      local run="$(echo "$out" | grep '__SCAFF_RUN__' | tail -n1 | sed 's/.*__SCAFF_RUN__//')"
+      # show banner/log lines (everything except marker and the path line)
+      printf '%s\n' "$out" | grep -v '__SCAFF_RUN__' | grep -vx "$last" >&2
+      run="$(printf '%s\n' "$out" | grep '__SCAFF_RUN__' | tail -n1 | sed 's/.*__SCAFF_RUN__//')"
       if [ -n "$run" ]; then
-        echo "$out" | grep -v '__SCAFF_RUN__' | grep -v "^$last$" >&2
-        echo "> $run" >&2; eval "$run"; return $?
+        printf '> %s\n' "$run" >&2
+        eval "$run"; return $?
       fi
       return 0
     fi
   fi
-  # error/no-cd case: always surface shim error so user sees why
-  echo "$out" | grep -v '__SCAFF_RUN__' | grep -v "^$last$"
-  return $ec
+
+  # failure or no cd: always surface output so the error is visible
+  printf '%s\n' "$out" | grep -v '__SCAFF_RUN__' | grep -vx "$last"
+  return "$ec"
 }
