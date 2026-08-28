@@ -12,10 +12,16 @@ scaff() {
   esac
   local out; out="$(command scaff "$first" "$@" 2>&1)"; local ec=$?
   if [ $ec -eq 0 ]; then
-    # find last line that is an existing directory (path is on stdout, logs now on stderr but still handle mixed)
     local last="$(echo "$out" | tr -d '\r' | tac 2>/dev/null | while IFS= read -r l; do l="$(echo "$l" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//;s/^'\''//;s/'\''$//')"; [ -d "$l" ] && echo "$l" && break; done)"
     if [ -z "$last" ]; then last="$(echo "$out" | tail -n1 | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"; fi
-    if [ -n "$last" ] && [ -d "$last" ]; then cd "$last" 2>/dev/null; return 0; fi
+    if [ -n "$last" ] && [ -d "$last" ]; then
+      cd "$last" 2>/dev/null
+      local run="$(echo "$out" | grep '__SCAFF_RUN__' | tail -n1 | sed 's/.*__SCAFF_RUN__//')"
+      if [ -n "$run" ]; then echo "> $run" >&2; eval "$run"; return $?
+      fi
+      return 0
+    fi
   fi
-  printf "%s\n" "$out"; return $ec
+  echo "$out" | grep -v '__SCAFF_RUN__'
+  return $ec
 }

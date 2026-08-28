@@ -22,9 +22,23 @@ function scaff {
             }
             if($t -and $t -match "^/[^ ]+" -and (Test-Path -LiteralPath $t -PathType Container -ErrorAction SilentlyContinue)){ $candidate=$t; break }
         }
-        if($candidate){ try{ Set-Location -LiteralPath $candidate; return } catch {} }
+        if($candidate){
+            try{
+                Set-Location -LiteralPath $candidate
+                # check for __SCAFF_RUN__ marker - run natively after cd
+                $run = $clean | Where-Object { $_ -match "__SCAFF_RUN__" } | Select-Object -Last 1
+                if($run){
+                    $cmd = ($run -replace ".*__SCAFF_RUN__","").Trim()
+                    # print logs without marker
+                    $out | Where-Object { $_ -notmatch "__SCAFF_RUN__" } | ForEach-Object { Write-Host $_ }
+                    if($cmd){ Write-Host "> $cmd" -ForegroundColor DarkGray; Invoke-Expression $cmd }
+                    return
+                }
+                return
+            } catch {}
+        }
     }
-    # Print original output without extra error wrapping
-    $out | ForEach-Object { Write-Host $_ }
+    # Print original output without extra error wrapping (strip marker)
+    $out | Where-Object { $_ -notmatch "__SCAFF_RUN__" } | ForEach-Object { Write-Host $_ }
     if($ec -ne 0){ $global:LASTEXITCODE=$ec }
 }

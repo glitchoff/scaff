@@ -37,15 +37,15 @@ export function detect(cwd:string): {framework:string, pm:string, command:string
   const command = pm==='pnpm'?'pnpm dev': pm==='bun'?'bun dev': pm==='yarn'?'yarn dev':'npm run dev';
   const editors:string[]=[];
   const which = process.platform==='win32'?'where':'which';
-  for(const e of ['code','cursor','windsurf','code-insiders','zed']){
+  for(const e of ['code','cursor','windsurf','code-insiders','zed','antigravity','antigravity-ide']){
     try{ if(spawnSync(which,[e]).status===0) editors.push(e); }catch{}
   }
   return {framework, pm, command, url, editors};
 }
 
 export async function runProjectConfig(dir:string, cfg:ProjectConfig){
+  // side-effects that don't need shell: editor + browser
   const log = (...a: unknown[]) => console.error(...a);
-  log(`> ${path.basename(dir)}`);
   if(cfg.editor){
     log(`[ok] Opening editor ${cfg.editor}`);
     try{ const cp=spawn(cfg.editor,[dir],{detached:true, stdio:'ignore'}); cp.on('error',()=>log(` editor "${cfg.editor}" not found in PATH`)); cp.unref(); }catch{}
@@ -60,10 +60,7 @@ export async function runProjectConfig(dir:string, cfg:ProjectConfig){
     }catch{}
   }
   if(cfg.command){
-    log(`> Running ${cfg.command} (current terminal)`);
-    try{
-      const res = spawnSync(cfg.command, { cwd: dir, shell: true, stdio: 'inherit' });
-      if(res.status!==0 && res.status!==null) log(`Command exited with code ${res.status}`);
-    }catch(e){ log(`Failed to run: ${(e as Error).message}`); }
+    // emit marker for shell wrapper to cd first then run natively
+    console.error(`__SCAFF_RUN__${cfg.command}`);
   }
 }

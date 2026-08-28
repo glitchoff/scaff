@@ -49,14 +49,18 @@ async function main(): Promise<number> {
     if (!cfg.hot) { console.error('scaff: no hot zone set. Use scaff -zone add <name> <dir>'); return 1; }
     token = `${cfg.hot}:${token.slice(1)}`;
   }
+  // --skip-config / --no-config to jump without running .scaff
+  const skipConfig = argv.includes('--skip-config') || argv.includes('--no-config') || argv.includes('--no-auto');
+  const bareToken = skipConfig ? token.split(' ')[0] : token; // token is first arg only anyway
+
   const { runBare } = await import('../commands/path.js');
-  const code = await runBare(configPath, token);
-  if (code === 0) {
+  const code = await runBare(configPath, bareToken);
+  if (code === 0 && !skipConfig) {
     try {
       const { resolveToken } = await import('../core/resolve/index.js');
       const { loadConfig } = await import('../core/registry/store.js');
       const cfg = loadConfig(configPath);
-      const projects = resolveToken(cfg, token);
+      const projects = resolveToken(cfg, bareToken);
       if (projects.length) {
         const { loadProjectConfig, runProjectConfig } = await import('../core/projectConfig/index.js');
         const pc = loadProjectConfig(projects[0]!.path);
