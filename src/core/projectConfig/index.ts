@@ -1,14 +1,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import chalk from 'chalk';
 
 export interface ProjectConfig {
   auto: boolean;
   editor: string | null;
-  terminal: { mode: 'window'|'tab'|'current'|'none' };
+  terminal?: { mode: 'window'|'tab'|'current'|'none' };
   command: string | null;
-  browser: { url: string | null, wait: boolean };
+  browser: { url: string | null };
 }
 
 const FILE = '.scaff';
@@ -18,6 +17,9 @@ export function loadProjectConfig(dir: string): ProjectConfig|null {
   try{
     const raw = fs.readFileSync(configPath(dir),'utf8');
     const j = JSON.parse(raw);
+    // migrate old shape
+    if(j.terminal===undefined) j.terminal={mode:'current'};
+    if(j.browser?.wait!==undefined) delete j.browser.wait;
     return j as ProjectConfig;
   }catch{ return null; }
 }
@@ -35,63 +37,33 @@ export function detect(cwd:string): {framework:string, pm:string, command:string
   const command = pm==='pnpm'?'pnpm dev': pm==='bun'?'bun dev': pm==='yarn'?'yarn dev':'npm run dev';
   const editors:string[]=[];
   const which = process.platform==='win32'?'where':'which';
-  for(const e of ['code','cursor','windsurf']){
+  for(const e of ['code','cursor','windsurf','code-insiders','zed']){
     try{ if(spawnSync(which,[e]).status===0) editors.push(e); }catch{}
   }
   return {framework, pm, command, url, editors};
 }
 
-async function pollUrl(url:string, timeout=45000){
-  const start=Date.now();
-  while(Date.now()-start<timeout){
-    try{ const res = await fetch(url,{signal:AbortSignal.timeout(2000)}); if(res.ok||res.status<500) return true; }catch{}
-    await new Promise(r=>setTimeout(r,1000));
-  }
-  return false;
-}
-
 export async function runProjectConfig(dir:string, cfg:ProjectConfig){
-  // Use plain ASCII to avoid encoding garble in PowerShell 5.1
-  console.log(`> ${path.basename(dir)}`);
+  const log = (...a: unknown[]) => console.error(...a);
+  log(`> ${path.basename(dir)}`);
   if(cfg.editor){
-    console.log(`[ok] Opening editor ${cfg.editor}`);
-    try{ const cp=spawn(cfg.editor,[dir],{detached:true, stdio:'ignore'}); cp.on('error',()=>console.log(` editor "${cfg.editor}" not found in PATH`)); cp.unref(); }catch{}
-  }
-  if(cfg.command && cfg.terminal.mode!=='none'){
-    console.log(`[ok] Starting ${cfg.command} in ${cfg.terminal.mode}`);
-    try{
-      if(cfg.terminal.mode==='window' || cfg.terminal.mode==='tab'){
-        if(process.platform==='win32'){
-          const wtOk = spawnSync('where',['wt']).status===0;
-          if(wtOk){ const cp=spawn('wt',['new-tab','-d',dir,'powershell','-NoExit','-Command',cfg.command],{detached:true, stdio:'ignore'}); cp.on('error',()=>{}); cp.unref(); }
-          else { const cp=spawn('cmd',['/c','start','', 'powershell','-NoExit','-Command',`cd /d "${dir}" && ${cfg.command}`],{detached:true, stdio:'ignore'}); cp.on('error',()=>{}); cp.unref(); }
-        } else spawn('bash',['-c',`cd "${dir}" && ${cfg.command}`],{detached:true, stdio:'ignore'}).unref();
-      } else spawn(cfg.command,{cwd:dir, shell:true, stdio:'inherit'});
-    }catch{}
-  } else if(cfg.command && cfg.terminal.mode==='none'){
-    console.log(`> Running ${cfg.command} (current terminal)`);
-    try{ spawn(cfg.command,{cwd:dir, shell:true, stdio:'inherit'}); }catch{}
+    log(`[ok] Opening editor ${cfg.editor}`);
+    try{ const cp=spawn(cfg.editor,[dir],{detached:true, stdio:'ignore'}); cp.on('error',()=>log(` editor "${cfg.editor}" not found in PATH`)); cp.unref(); }catch{}
   }
   if(cfg.browser.url){
-    if(cfg.browser.wait){
-      console.log(`... Waiting for ${cfg.browser.url}...`);
-      const ok = await pollUrl(cfg.browser.url);
-      if(ok) console.log(`[ok] Server ready`);
-      else {
-        console.log(`[!] Server didn't become available in time.`);
-        try{
-          const { confirm } = await import('@clack/prompts');
-          const yes = await confirm({ message:'Open browser anyway?', initialValue:true }) as boolean|symbol;
-          if(yes!==true) return;
-        }catch{}
-      }
-    }
-    console.log(`[ok] Opening browser ${cfg.browser.url}`);
+    log(`[ok] Opening browser ${cfg.browser.url}`);
     try{
       const url=cfg.browser.url;
       if(process.platform==='win32') spawn('cmd',['/c','start','',url],{detached:true, stdio:'ignore'}).unref();
       else if(process.platform==='darwin') spawn('open',[url],{detached:true, stdio:'ignore'}).unref();
       else spawn('xdg-open',[url],{detached:true, stdio:'ignore'}).unref();
     }catch{}
+  }
+  if(cfg.command){
+    log(`> Running ${cfg.command} (current terminal)`);
+    try{
+      const res = spawnSync(cfg.command, { cwd: dir, shell: true, stdio: 'inherit' });
+      if(res.status!==0 && res.status!==null) log(`Command exited with code ${res.status}`);
+    }catch(e){ log(`Failed to run: ${(e as Error).message}`); }
   }
 }

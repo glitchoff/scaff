@@ -11,7 +11,11 @@ scaff() {
       command scaff "$first" "$@"; return $? ;;
   esac
   local out; out="$(command scaff "$first" "$@" 2>&1)"; local ec=$?
-  local last="$(echo "$out" | tail -n1 | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-  if [ $ec -eq 0 ] && [ -d "$last" ]; then cd "$last" 2>/dev/null; return 0; fi
+  if [ $ec -eq 0 ]; then
+    # find last line that is an existing directory (path is on stdout, logs now on stderr but still handle mixed)
+    local last="$(echo "$out" | tr -d '\r' | tac 2>/dev/null | while IFS= read -r l; do l="$(echo "$l" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//;s/^'\''//;s/'\''$//')"; [ -d "$l" ] && echo "$l" && break; done)"
+    if [ -z "$last" ]; then last="$(echo "$out" | tail -n1 | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"; fi
+    if [ -n "$last" ] && [ -d "$last" ]; then cd "$last" 2>/dev/null; return 0; fi
+  fi
   printf "%s\n" "$out"; return $ec
 }

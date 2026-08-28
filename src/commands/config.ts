@@ -2,153 +2,104 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as p from '@clack/prompts';
 import { loadProjectConfig, saveProjectConfig, detect, runProjectConfig, type ProjectConfig } from '../core/projectConfig/index.js';
-import type { ParsedArgs } from '../cli/args.js';
 import { flag } from '../cli/args.js';
+import type { ParsedArgs } from '../cli/args.js';
 
 export async function runConfig(configPath: string, args: ParsedArgs): Promise<number> {
   const cwd = process.cwd();
-  const name = path.basename(cwd);
+  const cfg = loadProjectConfig(cwd);
   if (flag(args.options,'run')) {
-    const cfg = loadProjectConfig(cwd);
-    if (!cfg) { p.log.error(`No scaff config in ${cwd}. Run scaff config to set up.`); return 1; }
+    if (!cfg) { p.log.error(`No .scaff in ${cwd}. Run scaff config.`); return 1; }
     await runProjectConfig(cwd, cfg);
     return 0;
   }
-  const existing = loadProjectConfig(cwd);
-  if (!existing) return wizardNew(cwd, name);
-  return wizardExisting(cwd, name, existing);
+  if (!cfg) return createFlow(cwd);
+  return editFlow(cwd, cfg);
 }
 
-async function wizardNew(cwd:string, name:string){
-  p.intro(`Configure ${name}`);
+// --- create: one screen, 3 questions ---
+async function createFlow(cwd: string){
   const det = detect(cwd);
+  p.intro(`scaff config — ${path.basename(cwd)}`);
+  p.log.info(`detected: ${det.pm} · ${det.command} · ${det.url}`);
 
-  const group = await p.group({
-    wantEditor: () => p.confirm({ message:'Open an editor?', initialValue:true }),
-    wantCommand: () => p.confirm({ message:'Start a dev command?', initialValue:true }),
-    wantBrowser: () => p.confirm({ message:'Open a browser?', initialValue:true }),
-    wantTerminal: () => p.confirm({ message:'Open project terminal?', initialValue:true }),
-  }, { onCancel: ()=>{ p.cancel('Cancelled'); process.exit(0); } });
-  if(p.isCancel(group)) return 1;
+  const res = await p.group({
+    editor: () => p.select({
+      message: 'Editor',
+      options: [
+        { value: det.editors[0] ?? 'code', label: det.editors[0] ?? 'code', hint: det.editors[0] ? 'detected' : undefined },
+        { value: 'none', label: 'none' },
+        { value: 'other', label: 'other…' },
+      ],
+    }),
+    command: () => p.text({ message: 'Command', placeholder: det.command, defaultValue: det.command }),
+    url: () => p.text({ message: 'Browser URL (empty = none)', placeholder: det.url }),
+  }, { onCancel: ()=>{ p.cancel('Cancelled'); process.exit(0); }});
 
-  let editor: string|null = null;
-  if(group.wantEditor){
-    const sel = await p.select({
-      message:'Which editor?',
-      options: det.editors.length
-        ? [{value:'detect',label:'Detect installed'},{value:'code',label:'VS Code'},{value:'cursor',label:'Cursor'},{value:'windsurf',label:'Windsurf'},{value:'other',label:'Other'}]
-        : [{value:'code',label:'VS Code'},{value:'cursor',label:'Cursor'},{value:'windsurf',label:'Windsurf'},{value:'other',label:'Other'}]
-    }) as string|symbol;
-    if(p.isCancel(sel)) return 1;
-    if(sel==='detect'){
-      const opts = det.editors.map(e=>({value:e, label: e==='code'?'VS Code': e==='cursor'?'Cursor':'Windsurf'}));
-      const dsel = await p.select({ message:'Detected editors', options: opts as never }) as string|symbol;
-      if(p.isCancel(dsel)) return 1;
-      editor = dsel as string;
-    } else if(sel==='other'){
-      const v = await p.text({ message:'Editor command', placeholder:'code' }) as string|symbol;
-      if(p.isCancel(v)) return 1; editor = (v as string)||'code';
-    } else editor = sel as string;
+  let editor = res.editor as string;
+  if (editor === 'other') {
+    const v = await p.text({ message: 'Editor command', placeholder: 'code' }) as string;
+    editor = v?.trim() || 'code';
   }
+  if (editor === 'none') editor = '';
 
-  let terminalMode: 'window'|'tab'|'current'|'none' = 'none';
-  if(group.wantTerminal){
-    const t = await p.select({
-      message:'Where should command run?',
-      options:[
-        {value:'window', label:'New terminal window'},
-        {value:'tab', label:'New terminal tab'},
-        {value:'current', label:'Current terminal'},
-        {value:'none', label:"Don't open a terminal"},
-      ]
-    }) as string|symbol;
-    if(p.isCancel(t)) return 1; terminalMode = t as never;
-  }
+  const command = (res.command as string)?.trim() || null;
+  const url = (res.url as string)?.trim() || null;
 
-  let command: string|null = null;
-  if(group.wantCommand){
-    p.log.info(`Detected package manager: ${det.pm}`);
-    const c = await p.select({
-      message:'What should run?',
-      options:[{value:det.command,label:det.command},{value:'pnpm start',label:'pnpm start'},{value:'custom',label:'Custom command'}]
-    }) as string|symbol;
-    if(p.isCancel(c)) return 1;
-    if(c==='custom'){ const v = await p.text({message:'Custom command', placeholder:'pnpm dev'}) as string|symbol; if(p.isCancel(v)) return 1; command = (v as string)||'pnpm dev';}
-    else command = c as string;
-  }
-
-  let browserUrl: string|null = null;
-  if(group.wantBrowser){
-    const b = await p.select({
-      message:'Open a URL?',
-      options:[{value:'detected',label:`Detected: ${det.url}`},{value:'custom',label:'Enter custom URL'},{value:'none',label:"Don't open automatically"}]
-    }) as string|symbol;
-    if(p.isCancel(b)) return 1;
-    if(b==='detected') browserUrl = det.url;
-    else if(b==='custom'){ const v = await p.text({message:'Custom URL', placeholder:'http://localhost:3000'}) as string|symbol; if(p.isCancel(v)) return 1; browserUrl = (v as string)||'http://localhost:3000';}
-  }
-
-  p.log.message(`Ready profile for ${name}\n  Editor: ${editor??'—'}  Terminal: ${terminalMode}  Command: ${command??'—'}  Browser: ${browserUrl??'—'}`);
-
-  const final = await p.select({
-    message:'Save?',
-    options:[{value:'enable',label:'Save & enable'},{value:'manual',label:'Save without auto-run'},{value:'restart',label:'Start over'}]
-  }) as string|symbol;
-  if(p.isCancel(final)) return 1;
-  if(final==='restart') return wizardNew(cwd, name);
-  const cfg: ProjectConfig = { auto: final==='enable', editor, terminal:{mode: terminalMode}, command, browser:{url: browserUrl, wait:true} };
-  saveProjectConfig(cwd, cfg);
-  p.log.success(`Saved ${path.join(cwd,'.scaff')} ${cfg.auto?'(auto)':'(manual)'}`);
-  try{
-    const gi = path.join(cwd,'.gitignore');
-    let content = fs.existsSync(gi)? fs.readFileSync(gi,'utf8') : '';
-    if(!content.includes('.scaff')){
-      const add = await p.confirm({ message:'Add .scaff to .gitignore?', initialValue:false }) as boolean|symbol;
-      if(add===true){ fs.appendFileSync(gi, '\n.scaff\n'); p.log.info('Added .scaff to .gitignore'); }
-    }
-  }catch{}
-  const hint = await getRunHint(cwd, name);
-  p.outro(`Run with: ${hint}`);
+  const auto = await p.confirm({ message: 'Auto-run on scaff jump?', initialValue: true }) as boolean;
+  const cfg: ProjectConfig = { auto, editor: editor || null, command, browser: { url } };
+  save(cwd, cfg);
+  p.outro(`Saved .scaff — scaff config --run to test`);
   return 0;
 }
 
-async function getRunHint(cwd:string, name:string): Promise<string> {
-  try {
-    const { loadConfig } = await import('../core/registry/store.js');
-    const { getConfigPath } = await import('../config.js');
-    const cfg = loadConfig(getConfigPath());
-    for(const [zone, dir] of Object.entries(cfg.zones) as [string,string][]){
-      if(path.resolve(dir)===path.resolve(path.dirname(cwd)) || cwd.startsWith(path.resolve(dir)+path.sep)) {
-        if(cfg.hot===zone) return `scaff ${name}`;
-        return `scaff ${zone}:${name}`;
-      }
-    }
-    // fallback: if hot contains this project
-    if(cfg.hot) return `scaff ${cfg.hot}:${name}`;
-  } catch {}
-  return `scaff ${name}`;
-}
+// --- edit: flat list, pick field to change ---
+async function editFlow(cwd: string, cfg: ProjectConfig){
+  p.intro(path.basename(cwd));
+  p.log.message(`${fmt(cfg)}`);
 
-async function wizardExisting(cwd:string, name:string, cfg:ProjectConfig){
-  p.intro(name);
-  p.log.message(`Auto-run: ${cfg.auto?'On':'Off'}  Editor: ${cfg.editor??'—'}  Terminal: ${cfg.terminal.mode}  Command: ${cfg.command??'—'}  Browser: ${cfg.browser.url??'—'}`);
   const sel = await p.select({
-    message:'Choose',
-    options:[
-      {value:'run', label:'Run now'},
-      {value:'edit', label:'Edit configuration'},
-      {value:'disable', label:'Disable auto-run'},
-      {value:'remove', label:'Remove configuration'},
-    ]
+    message: 'Action',
+    options: [
+      { value: 'run', label: 'Run now' },
+      { value: 'editor', label: `editor: ${cfg.editor ?? '—'}` },
+      { value: 'command', label: `command: ${cfg.command ?? '—'}` },
+      { value: 'url', label: `url: ${cfg.browser.url ?? '—'}` },
+      { value: 'toggle', label: `auto: ${cfg.auto ? 'on' : 'off'}` },
+      { value: 'remove', label: 'Remove .scaff' },
+    ],
   }) as string|symbol;
-  if(p.isCancel(sel)) return 1;
-  if(sel==='run'){ await runProjectConfig(cwd,cfg); return 0; }
-  if(sel==='edit') return wizardNew(cwd,name);
-  if(sel==='disable'){ cfg.auto=false; saveProjectConfig(cwd,cfg); p.log.warn('Auto-run disabled'); return 0; }
-  if(sel==='remove'){
-    const ok = await p.confirm({ message:'Remove .scaff?', initialValue:false }) as boolean|symbol;
-    if(ok===true){ try{ fs.unlinkSync(path.join(cwd,'.scaff')); }catch{} p.log.error('Removed'); }
+  if (p.isCancel(sel)) return 1;
+
+  if (sel === 'run') { await runProjectConfig(cwd, cfg); return 0; }
+  if (sel === 'toggle') { cfg.auto = !cfg.auto; save(cwd, cfg); p.log.success(`auto ${cfg.auto?'on':'off'}`); return 0; }
+  if (sel === 'remove') {
+    const ok = await p.confirm({ message: 'Remove .scaff?' }) as boolean;
+    if (ok) { try{ fs.unlinkSync(path.join(cwd,'.scaff')); }catch{} p.log.success('Removed'); }
     return 0;
   }
+  if (sel === 'editor') {
+    const v = await p.text({ message: 'Editor (empty = none)', placeholder: 'code', defaultValue: cfg.editor ?? '' }) as string;
+    cfg.editor = v?.trim() || null; save(cwd, cfg); p.log.success(`editor → ${cfg.editor ?? '—'}`); return 0;
+  }
+  if (sel === 'command') {
+    const v = await p.text({ message: 'Command (empty = none)', placeholder: 'pnpm dev', defaultValue: cfg.command ?? '' }) as string;
+    cfg.command = v?.trim() || null; save(cwd, cfg); p.log.success(`command → ${cfg.command ?? '—'}`); return 0;
+  }
+  if (sel === 'url') {
+    const v = await p.text({ message: 'URL (empty = none)', placeholder: 'http://localhost:3000', defaultValue: cfg.browser.url ?? '' }) as string;
+    cfg.browser.url = v?.trim() || null; save(cwd, cfg); p.log.success(`url → ${cfg.browser.url ?? '—'}`); return 0;
+  }
   return 0;
+}
+
+function fmt(c: ProjectConfig){ return `editor ${c.editor??'—'} · command ${c.command??'—'} · url ${c.browser.url??'—'} · auto ${c.auto?'on':'off'}`; }
+
+function save(cwd: string, cfg: ProjectConfig){
+  saveProjectConfig(cwd, cfg);
+  const gi = path.join(cwd,'.gitignore');
+  try{
+    const cur = fs.existsSync(gi) ? fs.readFileSync(gi,'utf8') : '';
+    if (!cur.includes('.scaff')) fs.appendFileSync(gi, '\n.scaff\n');
+  }catch{}
 }

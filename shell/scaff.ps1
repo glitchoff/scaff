@@ -13,16 +13,16 @@ function scaff {
     # Strip ANSI codes for path detection
     $clean = $out | ForEach-Object { $_ -replace "`e\[[0-9;]*m","" }
     if ($ec -eq 0) {
-        $last = ($clean | Select-Object -Last 1)
-        if($last){
-            $t=$last.ToString().Trim()
-            # Remove quotes and ensure valid path chars
+        # Find last line that looks like a path (stdout path is always last, but stderr logs may be merged via 2>&1)
+        $candidate = $null
+        for($i=$clean.Count-1; $i -ge 0; $i--){
+            $t=$clean[$i].ToString().Trim().Trim('"').Trim("'")
             if($t -and $t.Length -gt 2 -and $t -match "^[A-Za-z]:\\"){
-                try{
-                    if(Test-Path -LiteralPath $t -PathType Container -ErrorAction SilentlyContinue){ Set-Location -LiteralPath $t; return }
-                } catch {}
+                if(Test-Path -LiteralPath $t -PathType Container -ErrorAction SilentlyContinue){ $candidate=$t; break }
             }
+            if($t -and $t -match "^/[^ ]+" -and (Test-Path -LiteralPath $t -PathType Container -ErrorAction SilentlyContinue)){ $candidate=$t; break }
         }
+        if($candidate){ try{ Set-Location -LiteralPath $candidate; return } catch {} }
     }
     # Print original output without extra error wrapping
     $out | ForEach-Object { Write-Host $_ }

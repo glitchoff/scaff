@@ -6,7 +6,11 @@ export default defineConfig({
   target: 'node18',
   outDir: 'dist',
   clean: true,
-  shims: true,    // adds __dirname/__filename shims for ESM
+  shims: true,
+  splitting: false,
+  bundle: true,
+  minify: false,
+  treeshake: true,
   banner: {
     js: '#!/usr/bin/env node',
   },
