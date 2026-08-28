@@ -50,6 +50,11 @@ function scaff {
             }
         }
     }
-    $out | Where-Object { $_ -notmatch "__SCAFF_RUN__" } | ForEach-Object { Write-Host $_ }
-    if($ec -ne 0){ $global:LASTEXITCODE=$ec }
+    if($ec -ne 0){
+        # error case: project not found etc - show in red so user sees why cd didn't happen
+        $out | Where-Object { $_ -notmatch "__SCAFF_RUN__" } | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+        $global:LASTEXITCODE=$ec
+    } else {
+        $out | Where-Object { $_ -notmatch "__SCAFF_RUN__" } | ForEach-Object { Write-Host $_ }
+    }
 }

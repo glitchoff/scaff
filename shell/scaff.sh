@@ -24,6 +24,7 @@ scaff() {
       return 0
     fi
   fi
+  # error/no-cd case: always surface shim error so user sees why
   echo "$out" | grep -v '__SCAFF_RUN__' | grep -v "^$last$"
   return $ec
 }
