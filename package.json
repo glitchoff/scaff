@@ -1,6 +1,6 @@
 {
   "name": "scaff-up",
-  "version": "1.3.25",
+  "version": "1.3.26",
   "description": "A cross-platform developer CLI for project workspace registration, resolution, and launching.",
   "type": "module",
   "main": "./dist/main.js",
