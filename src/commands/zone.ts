@@ -32,7 +32,7 @@ export async function runZoneAddDot(configPath: string): Promise<number> {
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) { console.error(`scaff: not a directory: ${dir}`); return 1; }
   if (!process.stdin.isTTY || !process.stdout.isTTY) { console.error('scaff: run `scaff .` in an interactive terminal'); return 1; }
   const { text, confirm } = await import('@clack/prompts');
-  const name = await text({ message: `zone name for ${dir}:`, validate(v){ if(!isValidZoneName(v)) return 'invalid name (no - or : or .)'; } }) as string|symbol;
+  const name = await text({ message: `zone name for ${dir}:`, validate(v){ if(!isValidZoneName(v as string)) return 'invalid name (no - or : or .)'; } }) as string|symbol;
   if (typeof name === 'symbol') return 1;
   const trimmed = (name as string).trim();
   if (!trimmed) return 1;
