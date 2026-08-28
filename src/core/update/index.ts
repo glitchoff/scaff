@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { getConfigDir } from '../../config.js';
 import { version } from '../../cli/help.js';
 import { commandExists } from '../launch/index.js';
@@ -63,10 +63,15 @@ export async function runUpdate(checkOnly: boolean): Promise<number> {
     console.log(`scaff update available ${current} → ${latest}`);
     if (checkOnly) return 0;
     const pm = commandExists('pnpm') ? 'pnpm' : commandExists('bun') ? 'bun' : 'npm';
-    const cmd = pm === 'pnpm' ? ['pnpm','add','-g','scaff-up@latest'] : pm === 'bun' ? ['bun','add','-g','scaff-up'] : ['npm','i','-g','scaff-up@latest'];
-    console.log(`→ ${cmd.join(' ')}`);
-    const r = spawnSync(cmd[0]!, cmd.slice(1), { stdio: 'inherit', shell: true });
-    if (r.status !== 0) return r.status ?? 1;
+    const cmdStr = pm === 'pnpm' ? 'pnpm add -g scaff-up@latest' : pm === 'bun' ? 'bun add -g scaff-up' : 'npm i -g scaff-up@latest';
+    console.log(`→ ${cmdStr}`);
+    try {
+      execSync(cmdStr, { stdio: 'inherit', shell: true });
+    } catch (e) {
+      const s = (e as { status?: number }).status;
+      console.error(`scaff: update failed${s ? ` (exit ${s})` : ''}`);
+      return s ?? 1;
+    }
     writeCache(latest); console.log(`✔ Updated to ${latest}.`);
   }
   // Always run migrate/setup after update (or if already up to date)

@@ -64,7 +64,7 @@ async function main(): Promise<number> {
       if (projects.length) {
         const { loadProjectConfig, runProjectConfig } = await import('../core/projectConfig/index.js');
         const pc = loadProjectConfig(projects[0]!.path);
-        if (pc?.auto) await runProjectConfig(projects[0]!.path, pc);
+        if (pc?.auto) await runProjectConfig(projects[0]!.path, pc, { emitMarker: true });
       }
     } catch {}
   }

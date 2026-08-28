@@ -43,8 +43,8 @@ export function detect(cwd:string): {framework:string, pm:string, command:string
   return {framework, pm, command, url, editors};
 }
 
-export async function runProjectConfig(dir:string, cfg:ProjectConfig){
-  // side-effects that don't need shell: editor + browser
+export async function runProjectConfig(dir:string, cfg:ProjectConfig, opts: { emitMarker?: boolean } = {}){
+  const emitMarker = opts.emitMarker ?? false; // true only for wrapper cd flow
   const log = (...a: unknown[]) => console.error(...a);
   if(cfg.editor){
     log(`[ok] Opening editor ${cfg.editor}`);
@@ -60,7 +60,17 @@ export async function runProjectConfig(dir:string, cfg:ProjectConfig){
     }catch{}
   }
   if(cfg.command){
-    // emit marker for shell wrapper to cd first then run natively
-    console.error(`__SCAFF_RUN__${cfg.command}`);
+    if(emitMarker){
+      console.error(`__SCAFF_RUN__${cfg.command}`);
+    } else {
+      console.error(`> Running ${cfg.command}`);
+      try{
+        const { execSync } = await import('node:child_process');
+        execSync(cfg.command, { cwd: dir, stdio: 'inherit', shell: true });
+      }catch(e: unknown){
+        const s=(e as {status?:number}).status;
+        if(s) log(`Command exited with code ${s}`);
+      }
+    }
   }
 }
