@@ -46,9 +46,9 @@ export function detect(cwd:string): {framework:string, pm:string, command:string
 export async function runProjectConfig(dir:string, cfg:ProjectConfig, opts: { emitMarker?: boolean } = {}){
   const emitMarker = opts.emitMarker ?? false;
   const log = (...a: unknown[]) => console.error(...a);
-  // banner for config projects
-  log(`\u2500\u2500 scaff \u2500 ${path.basename(dir)} \u2500\u2500`);
-  log(` editor ${cfg.editor ?? '—'} \u00B7 command ${cfg.command ?? '—'} \u00B7 url ${cfg.browser.url ?? '—'}`);
+  // banner for config projects - ASCII for PS5.1
+  log(`-- scaff -- ${path.basename(dir)} --`);
+  log(` editor ${cfg.editor ?? '-'} | command ${cfg.command ?? '-'} | url ${cfg.browser.url ?? '-'}`);
   if(cfg.editor){
     log(`[ok] Opening editor ${cfg.editor}`);
     try{ const cp=spawn(cfg.editor,[dir],{detached:true, stdio:'ignore'}); cp.on('error',()=>log(` editor "${cfg.editor}" not found in PATH`)); cp.unref(); }catch{}
