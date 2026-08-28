@@ -15,14 +15,20 @@ function scaff {
     # Strip ANSI codes for path detection
     $clean = $out | ForEach-Object { $_ -replace "`e\[[0-9;]*m","" }
     if ($ec -eq 0) {
-        # Find last line that looks like a path (stdout path is always last, but stderr logs may be merged via 2>&1)
         $candidate = $null
         for($i=$clean.Count-1; $i -ge 0; $i--){
-            $t=$clean[$i].ToString().Trim().Trim('"').Trim("'")
-            if($t -and $t.Length -gt 2 -and $t -match "^[A-Za-z]:\\"){
-                if(Test-Path -LiteralPath $t -PathType Container -ErrorAction SilentlyContinue){ $candidate=$t; break }
+            $t=$clean[$i].ToString().Trim().Trim('"').Trim("'").TrimEnd('\').TrimEnd('/')
+            if(-not $t -or $t.Length -lt 3){ continue }
+            # strip ANSI remnants
+            $t = $t -replace "`e\[[0-9;]*m",""
+            if($t -match "^[A-Za-z]:\\"){
+                # try cd even if Test-Path flickers due to -LiteralPath escaping
+                try{ if(Test-Path -LiteralPath $t -ErrorAction SilentlyContinue){ $candidate=$t; break } }catch{}
+                # fallback: if it looks like absolute path, trust shim output and try Set-Location later
+                if(-not $candidate -and $t -match "^[A-Za-z]:\\[^`n]+$"){ $candidate=$t; break }
+            } elseif($t -match "^/"){
+                if(Test-Path -LiteralPath $t -ErrorAction SilentlyContinue){ $candidate=$t; break }
             }
-            if($t -and $t -match "^/[^ ]+" -and (Test-Path -LiteralPath $t -PathType Container -ErrorAction SilentlyContinue)){ $candidate=$t; break }
         }
         if($candidate){
             try{
