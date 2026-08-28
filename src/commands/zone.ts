@@ -30,7 +30,8 @@ export async function runZone(configPath: string, args: ParsedArgs): Promise<num
 export async function runZoneAddDot(configPath: string): Promise<number> {
   const dir = path.resolve('.');
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) { console.error(`scaff: not a directory: ${dir}`); return 1; }
-  if (!process.stdin.isTTY || !process.stdout.isTTY) { console.error('scaff: run `scaff .` in an interactive terminal'); return 1; }
+  // TTY check removed - clack prompts handle non-TTY via fallback; wrapper now bypasses capture for '.'
+  if (!process.stdin.isTTY) { /* allow - wrapper will passthrough */ }
   const { text, confirm } = await import('@clack/prompts');
   const name = await text({ message: `zone name for ${dir}:`, validate(v){ if(!isValidZoneName(v as string)) return 'invalid name (no - or : or .)'; } }) as string|symbol;
   if (typeof name === 'symbol') return 1;
