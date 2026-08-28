@@ -24,17 +24,28 @@ function scaff {
             if($isDir -or ($t -match "^[A-Za-z]:\\")){
                 try{
                     Set-Location -LiteralPath $t -ErrorAction SilentlyContinue
-                    if((Get-Location).Path -eq $t -or (Test-Path -LiteralPath $t)){
-                        $run = @($clean | Where-Object { $_ -like "*__SCAFF_RUN__*" }) | Select-Object -Last 1
-                        if($run){
-                            $cmd = ($run -replace ".*__SCAFF_RUN__","").Trim()
-                            $pathLine = $t
-                            @($out | Where-Object { $_ -notlike "*__SCAFF_RUN__*" -and $_.Trim() -ne $pathLine }) | ForEach-Object { Write-Host $_ }
-                            if($cmd){ Write-Host "> $cmd" -ForegroundColor DarkGray; Invoke-Expression $cmd }
-                            return
+                    # always show banner/logs that shim emitted (stderr captured)
+                    $pathLine = $t
+                    $logs = @($out | Where-Object { $_ -notlike "*__SCAFF_RUN__*" -and $_.Trim() -ne $pathLine })
+                    if($logs.Count -gt 0){ $logs | ForEach-Object { Write-Host $_ } }
+                    # 1) marker from shim (preferred) 2) fallback read .scaff directly so cd-then-run works even if marker missed
+                    $run = @($clean | Where-Object { $_ -like "*__SCAFF_RUN__*" }) | Select-Object -Last 1
+                    $cmd = $null
+                    if($run){ $cmd = ($run -replace ".*__SCAFF_RUN__","").Trim() }
+                    else {
+                        $scaffFile = Join-Path $t ".scaff"
+                        if(Test-Path -LiteralPath $scaffFile){
+                            try{
+                                $j = Get-Content -LiteralPath $scaffFile -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue
+                                if($j.auto -and $j.command){ $cmd = $j.command.ToString().Trim() }
+                            }catch{}
                         }
-                        return
                     }
+                    if($cmd){
+                        Write-Host "> $cmd" -ForegroundColor DarkGray
+                        Invoke-Expression $cmd
+                    }
+                    return
                 } catch {}
             }
         }
