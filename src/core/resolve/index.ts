@@ -34,9 +34,7 @@ function resolveBare(config: Config, addr: Address): Project[] {
       'no hot zone set — use `scaff <zone>:<name>` or set one with `scaff -zone hot <name>`.',
     );
   }
-  const hits = searchDirs(config.hot, config.zones[config.hot], addr.name);
-  if (hits.length) return hits;
-  throw new ResolveError(`project "${addr.name}" not found in hot zone "${config.hot}". Try \`scaff -find ${addr.name}\` or \`scaff <zone>:${addr.name}\`.`);
+  return searchDirs(config.hot, config.zones[config.hot], addr.name);
 }
 
 function resolveInZone(config: Config, addr: Address): Project[] {
